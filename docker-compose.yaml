@@ -20,6 +20,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
       PYTHONPATH: /code
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - db
 
