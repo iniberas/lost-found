@@ -12,6 +12,7 @@ class UserLoginRequest(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    username: str
 
 class TokenResponse(BaseModel):
     access_token: str

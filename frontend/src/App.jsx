@@ -1,64 +1,79 @@
 import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 
-function App() {
-  const [data, setData] = useState(null);
+// pages
+import AuthPage from './pages/AuthPage';
+import HomePage from './pages/HomePage';
+
+const Input = ({ icon: Icon, ...props }) => (
+  <div>
+    <div>
+      <Icon size={18} />
+    </div>
+    <input
+      {...props}
+    />
+  </div>
+);
+
+
+const Button = ({ children, isLoading, ...props }) => {
+  return (
+    <button disabled={isLoading} {...props}>
+      {isLoading ? <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : children}
+    </button>
+  );
+};
+
+
+
+function AppContent() {
+  const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const API_URL = 'http://127.0.0.1:8000'; 
 
   useEffect(() => {
-    fetch(`${API_URL}/`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(result => {
-        setData(result);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Fetch error:", err);
-        setError(err.message);
-        setLoading(false);
-      });
+    const token = localStorage.getItem('access_token')
+    if (token) fetchProfile(token);
+    else setLoading(false);
   }, []);
 
+  const fetchProfile = async (token) => {
+    try {
+      const response = await fetch(`${API_URL}/user/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {setUser(await response.json())}
+      else handleLogout();
+    } catch (e) { handleLogout(); }
+    finally { setLoading(false); }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    setUser(null);
+  }
+
+
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-        <h1 className="text-3xl font-bold text-blue-600 mb-6 text-center">
-          System Status
-        </h1>
+    <Routes>
+      <Route path="/auth" element={!user ? <AuthPage onLoginSuccess={() => { fetchProfile(localStorage.getItem('access_token')) }}/> : <Navigate to="/home" /> }/>
 
-        {loading && (
-          <p className="text-gray-600 text-center animate-pulse">
-            ⏳ Connecting to backend... ⏳
-          </p>
-        )}
+      {/* root redirect ke auth atau home  */}
+      <Route path="/" element={user ? <Navigate to="/home" replace /> : <Navigate to="/auth" />} />
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4">
-            <p className="font-bold text-red-700">Failed</p>
-            <p className="text-sm text-red-800 mt-2 bg-red-100 p-2 rounded">
-              🤡 Error hihi 🤡
-            </p>
-          </div>
-        )}
-
-        {data && (
-          <div className="bg-green-50 border-l-4 border-green-500 p-4">
-            <p className="font-bold text-green-700">Success!</p>
-            <pre className="text-sm text-green-800 mt-2 bg-green-100 p-2 rounded">
-              🎉👯 Wooohooo hore hore horee!! 👯🎉
-            </pre>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      <Route path="/home" element={user ? <HomePage user={user} handleLogout={handleLogout} /> : <Navigate to="/auth" />} />
+    </Routes>
+  )
 }
 
-export default App;
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}

@@ -61,3 +61,14 @@ class RefreshTokenUseCase:
 
         new_access_token = self.token_service.create_access_token({"sub": user.email})
         return {"access_token": new_access_token, "token_type": "bearer"}
+
+
+class GetUserUseCase:
+    def __init__(self, repo: IUserRepository):
+        self.repo = repo
+
+    def execute(self, email: str) -> dict:
+        user = self.repo.find_by_email(email)
+        if not user:
+            raise Exception("User not found")
+        return {"id": user.id, "email": user.email, "username": user.username}
