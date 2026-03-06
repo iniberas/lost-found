@@ -4,9 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.config import settings
 from app.api.dependencies import get_db
-from app.api.login import router as login_router
-from app.api.register import router as register_router
-from app.api.token import router as token_router
+from app.api.v1.auth_router import router as auth_router
 from app.db.session import Base, engine
 
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -32,8 +30,6 @@ def health_check(db: Session = Depends(get_db)):
         print(f"DB Connection Error: {e}")
         raise HTTPException(status_code=500, detail="koneksi gagal huhuuu")
     
-app.include_router(login_router)
-app.include_router(register_router)
-app.include_router(token_router)
+app.include_router(auth_router)
 
 Base.metadata.create_all(bind=engine)
