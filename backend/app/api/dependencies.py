@@ -1,13 +1,13 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
+from app.infrastructure.database.session import SessionLocal
 from app.core.security import ArgusPasswordHasher, JWTTokenService
 from app.domain.entities.user import User
 from app.domain.interfaces.user import IUserRepository
 from typing import Optional, Annotated
 from app.domain.use_cases.auth import RegisterUserUseCase, LoginUserUseCase, RefreshTokenUseCase, GetUserUseCase
-from app.db.repositories.user import SqlAlchemyUserRepository
+from app.infrastructure.repositories.user import SqlAlchemyUserRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 

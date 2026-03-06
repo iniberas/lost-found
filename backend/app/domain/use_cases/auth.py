@@ -3,6 +3,7 @@ from app.domain.interfaces.user import IUserRepository
 import uuid
 from app.domain.entities.user import User
 
+
 class RegisterUserUseCase:
     def __init__(self, repo: IUserRepository, hasher: IPasswordHasher):
         self.repo = repo
@@ -15,7 +16,7 @@ class RegisterUserUseCase:
         hashed_pw = self.hasher.hash(password)
         new_user = User(id=str(uuid.uuid4()), username=username, email=email, password_hash=hashed_pw)
         self.repo.save(new_user)
-        return {"id": new_user.id, "email": new_user.email}
+        return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
 
 class LoginUserUseCase:
     def __init__(self, repo: IUserRepository, hasher: IPasswordHasher, token_service: ITokenService):
