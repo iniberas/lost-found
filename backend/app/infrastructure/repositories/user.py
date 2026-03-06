@@ -2,7 +2,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from app.domain.entities.user import User
 from app.domain.interfaces.user import IUserRepository
-from app.db.session import UserModel
+from app.infrastructure.database.models.user import UserModel
+
 
 class SqlAlchemyUserRepository(IUserRepository):
     def __init__(self, db: Session):

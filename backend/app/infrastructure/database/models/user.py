@@ -1,0 +1,11 @@
+from sqlalchemy import Column, String
+from app.infrastructure.database.session import Base
+
+
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    username = Column(String)

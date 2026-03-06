@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.config import settings
 from app.api.dependencies import get_db
-from app.api.v1.auth_router import router as auth_router
-from app.db.session import Base, engine
+from app.api.v1.auth import router as auth_router
+from app.infrastructure.database.session import Base, engine
+
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
