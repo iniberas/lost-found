@@ -9,14 +9,15 @@ class RegisterUserUseCase:
         self.repo = repo
         self.hasher = hasher
     
-    def execute(self, username, email, password) -> dict:
+    def execute(self, name, email, phone_number, password) -> dict:
         if self.repo.find_by_email(email):
             raise Exception(f"User {email} already exists.")
 
         hashed_pw = self.hasher.hash(password)
-        new_user = User(id=str(uuid.uuid4()), username=username, email=email, password_hash=hashed_pw)
+        new_user = User(id=str(uuid.uuid4()), name=name, email=email, phone_number=phone_number, password_hash=hashed_pw)
         self.repo.save(new_user)
-        return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
+        return {"id": new_user.id, "name": new_user.name, "email": new_user.email, "phone_number": new_user.phone_number}
+
 
 class LoginUserUseCase:
     def __init__(self, repo: IUserRepository, hasher: IPasswordHasher, token_service: ITokenService):
@@ -72,4 +73,4 @@ class GetUserUseCase:
         user = self.repo.find_by_email(email)
         if not user:
             raise Exception("User not found")
-        return {"id": user.id, "email": user.email, "username": user.username}
+        return {"id": user.id, "name": user.name, "email": user.email, "phone_number": user.phone_number}

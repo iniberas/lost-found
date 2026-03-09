@@ -12,8 +12,9 @@ class SqlAlchemyUserRepository(IUserRepository):
     def save(self, user: User) -> None:
         db_user = UserModel(
             id=user.id,
+            name=user.name,
             email=user.email,
-            username=user.username,
+            phone_number=user.phone_number,
             password_hash=user.password_hash
         )
         self.db.add(db_user)
@@ -26,7 +27,8 @@ class SqlAlchemyUserRepository(IUserRepository):
             return None
         return User(
             id=db_user.id,
+            name=db_user.name,
             email=db_user.email,
-            username=db_user.username,
+            phone_number=db_user.phone_number,
             password_hash=db_user.password_hash
         )

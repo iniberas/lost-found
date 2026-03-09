@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User, Phone } from "lucide-react";
 
 
-const API_URL = "http://127.0.0.1:8000"; 
+const API_URL = "http://127.0.0.1:8000";
 
 const Input = ({ icon: Icon, ...props }) => (
   <div>
@@ -30,7 +30,7 @@ export default function AuthPage({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [formData, setFormData] = useState({ username: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ name: "", phone_number: "", email: "", password: "" });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,7 +90,12 @@ export default function AuthPage({ onLoginSuccess }) {
       <div>
         {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
         <form onSubmit={handleSubmit}>
-          {!isLogin && <Input icon={User} placeholder="Username" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} required />}
+          {!isLogin && (
+            <>
+              <Input icon={User} placeholder="Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
+              <Input icon={Phone} placeholder="Phone Number" value={formData.phone_number} onChange={e => setFormData({ ...formData, phone_number: e.target.value })} required />
+            </>
+          )}
           <Input icon={Mail} type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
           <Input icon={Lock} type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
           <Button type="submit" isLoading={loading}>{isLogin ? "Login" : "Sign Up"}</Button>
