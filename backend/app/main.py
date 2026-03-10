@@ -5,7 +5,8 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.api.dependencies import get_db
 from app.api.v1.auth import router as auth_router
-from app.infrastructure.database.session import Base, engine
+from app.infrastructure.database.session import engine
+from app.infrastructure.database.models.base import Base
 
 
 app = FastAPI(title=settings.PROJECT_NAME)
