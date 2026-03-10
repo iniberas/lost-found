@@ -7,7 +7,7 @@ export default function HomePage({ user, handleLogout }) {
   return (
     <div>
       <h1> Home! </h1>
-      <h2> {`Hi, ${user.username}!`} </h2>
+      <h2> {`Hi, ${user.name}!`} </h2>
       <button
         onClick={handleLogout}>
           Logout

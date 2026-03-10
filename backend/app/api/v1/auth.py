@@ -9,7 +9,7 @@ router = APIRouter()
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(request: UserRegisterRequest, use_case: RegisterUserUseCase = Depends(get_register_use_case)):
     try:
-        return use_case.execute(request.username, request.email, request.password)
+        return use_case.execute(request.name, request.email, request.phone_number, request.password)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
