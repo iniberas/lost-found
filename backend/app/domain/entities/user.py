@@ -45,3 +45,29 @@ class User:
 class Admin(User):
     def __init__(self, id: int, name: str, email: str, phone_number: str, password_hash: str):
         super().__init__(id, name, email, phone_number, password_hash)
+
+
+
+# gatau bener apa enggak gini, tapi ini yg dipake di Report, soalnya User biasa megang password sama fungsi2 gaguna
+class UserSummary():
+    def __init__(self, id: str, name: str, email: str, phone_number: str):
+        self._id = id
+        self._name = name
+        self._email = email
+        self._phone_number = phone_number
+    
+    @property
+    def id(self):
+        return self._id
+    
+    @property
+    def name(self):
+        return self._name
+    
+    @property
+    def email(self):
+        return self._email
+    
+    @property
+    def phone_number(self):
+        return self._phone_number

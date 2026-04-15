@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import List, Optional
-from enum import Enum
+from enum import IntEnum
 from app.domain.entities.user import User
 
 
-class Status(Enum):
+class Status(IntEnum):
     OPEN = 0
     RESOLVED = 1
 
@@ -26,7 +26,7 @@ class Category:
 class Proof:
     def __init__(
         self, 
-        id: int, 
+        id: str, 
         date: datetime, 
         notes: str, 
         photos: List[str]
@@ -56,7 +56,7 @@ class Proof:
 class Report:
     def __init__(
         self, 
-        id: int, 
+        id: str, 
         title: str, 
         description: str, 
         date: datetime, 
@@ -143,7 +143,7 @@ class Report:
 class LostReport(Report):
     def __init__(
         self, 
-        id: int, 
+        id: str, 
         title: str, 
         description: str, 
         date: datetime, 
@@ -162,7 +162,7 @@ class LostReport(Report):
 class FoundReport(Report):
     def __init__(
         self, 
-        id: int, 
+        id: str, 
         title: str, 
         description: str, 
         date: datetime, 
@@ -187,7 +187,7 @@ class FoundReport(Report):
 class HandoverReport(Report):
     def __init__(
         self, 
-        id: int, 
+        id: str, 
         title: str, 
         description: str, 
         date: datetime, 

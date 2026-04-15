@@ -1,15 +1,22 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status, Form, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.infrastructure.database.session import SessionLocal
 from app.core.security import ArgusPasswordHasher, JWTTokenService
 from app.domain.entities.user import User
+from app.domain.entities.report import Status, Category
 from app.domain.interfaces.user import IUserRepository
-from typing import Optional, Annotated
+from typing import Optional, Annotated, List, Any
 from app.domain.use_cases.auth import RegisterUserUseCase, LoginUserUseCase, RefreshTokenUseCase, GetUserUseCase
+from app.domain.use_cases.report import ReportUseCase, ListReportUseCase
 from app.infrastructure.repositories.user import SqlAlchemyUserRepository
+from app.infrastructure.repositories.report import SqlAlchemyReportRepository
+from app.schemas.report import ReportRequest
+from datetime import datetime
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/swagger-thing")
 
 
 def get_db():
@@ -57,3 +64,33 @@ async def get_current_user(
         return profile_use_case.execute(email)
     except Exception:
         raise HTTPException(status_code=401, detail="User not found")
+    
+
+def get_report_repo(db: Session = Depends(get_db)):
+    return SqlAlchemyReportRepository(db)
+
+def get_report_use_case(repo = Depends(get_report_repo)):
+    return ReportUseCase(repo)
+
+
+def get_report_form_data(
+    title: str = Form(...),
+    description: str = Form(...),
+    date: datetime = Form(...),
+    location: str = Form(...),
+    status: Status = Form(...),
+    # categories: List[int] = Form(...)
+    categories: Any = Form(...)
+) -> ReportRequest:
+    return ReportRequest(
+        title=title,
+        description=description,
+        date=date,
+        location=location,
+        status=status,
+        # categories=categories
+        categories=[1,2,3],
+    )
+
+def get_reports_list(db: Session = Depends(get_report_repo)):
+    return ListReportUseCase(db)

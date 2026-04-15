@@ -5,6 +5,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.api.dependencies import get_db
 from app.api.v1.auth import router as auth_router
+from app.api.v1.report import router as report_router
 from app.infrastructure.database.session import engine
 from app.infrastructure.database.models.base import Base
 
@@ -33,5 +34,6 @@ def health_check(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="koneksi gagal huhuuu")
     
 app.include_router(auth_router)
+app.include_router(report_router)
 
 Base.metadata.create_all(bind=engine)
