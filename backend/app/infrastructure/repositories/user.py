@@ -12,21 +12,27 @@ class SqlAlchemyUserRepository(IUserRepository):
     def save(self, user: User) -> None:
         db_user = UserModel(
             id=user.id,
+            created_at=user.created_at, 
+            updated_at=user.updated_at, 
             name=user.name,
             email=user.email,
             phone_number=user.phone_number,
             password_hash=user.password_hash
         )
-        self.db.add(db_user)
+        
+        self.db.merge(db_user)
         self.db.commit()
-        self.db.refresh(db_user)
 
     def find_by_email(self, email: str) -> Optional[User]:
         db_user = self.db.query(UserModel).filter(UserModel.email == email).first()
+        
         if not db_user:
             return None
+            
         return User(
             id=db_user.id,
+            created_at=db_user.created_at,
+            updated_at=db_user.updated_at,
             name=db_user.name,
             email=db_user.email,
             phone_number=db_user.phone_number,

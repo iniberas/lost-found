@@ -1,12 +1,25 @@
+from enum import Enum
 from datetime import datetime
 from typing import List, Optional
-from enum import IntEnum
-from app.domain.entities.user import User
+from app.domain.entities.user import User, Admin
+from uuid import UUID
 
 
-class Status(IntEnum):
-    OPEN = 0
-    RESOLVED = 1
+class ReportType(str, Enum):
+    LOST = "lost"
+    FOUND = "found"
+
+
+class ReportStatus(str, Enum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+    CLOSED = "closed"  # resolve klo ketemu, closed klo dihapus/kelamaan
+
+
+class FoundStatus(str, Enum):
+    HELD_BY_FINDER = "held_by_finder"
+    HELD_BY_ADMIN = "held_by_admin"
+    RETURNED_TO_OWNER = "returned_to_owner"
 
 
 class Category:
@@ -15,201 +28,327 @@ class Category:
         self._name = name
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self._id
-    
+
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
 
 class Proof:
     def __init__(
-        self, 
-        id: str, 
-        date: datetime, 
-        notes: str, 
-        photos: List[str]
+        self, id: UUID, created_at: datetime, photos: List[str], notes: Optional[str]
     ):
         self._id = id
-        self._date = date
-        self._notes = notes
+        self._created_at = created_at
         self._photos = photos
-    
+        self._notes = notes
+
     @property
-    def id(self):
+    def id(self) -> UUID:
         return self._id
 
     @property
-    def date(self) -> datetime: 
-        return self._date
-    
+    def created_at(self) -> datetime:
+        return self._created_at
+
     @property
-    def notes(self) -> str: 
-        return self._notes
-    
-    @property
-    def photos(self) -> List[str]: 
+    def photos(self) -> List[str]:
         return self._photos
+
+    @property
+    def notes(self) -> Optional[str]:
+        return self._notes
 
 
 class Report:
     def __init__(
-        self, 
-        id: str, 
-        title: str, 
-        description: str, 
-        date: datetime, 
-        location: str, # NOTE: ini kayaknya yang bener pake class point atau apalah kayak class diagram. sowwy :3
-        status: Status, 
+        self,
+        id: UUID,
+        created_at: datetime,
+        updated_at: datetime,
+        reporter: User,
+        report_status: ReportStatus,
+        report_type: ReportType,
+        date: datetime,
+        title: str,
+        description: str,
+        location_name: str,
         categories: List[Category],
-        photos: List[str],
-        user: User,
+        deleted_at: Optional[datetime] = None,
+        latitude: Optional[float] = None,  # optional biar ga maksa
+        longitude: Optional[float] = None,
+        photos: Optional[List[str]] = None,
     ):
+        self._validate_categories(categories)
+
         self._id = id
+        self._created_at = created_at
+        self._updated_at = updated_at
+        self._deleted_at = deleted_at
+        self._reporter = reporter
+        self._report_status = report_status
+        self._report_type = report_type
+        self._date = date
         self._title = title
         self._description = description
-        self._date = date
-        self._location = location
-        self._status = status
-        self._categories = categories
-        self._photos = photos
-        self._user = user
-    
+        self._location_name = location_name
+        self._latitude = latitude
+        self._longitude = longitude
+        self._categories = categories.copy()
+        self._photos = photos.copy() if photos is not None else []
+
     @property
-    def id(self):
+    def id(self) -> UUID:
         return self._id
 
     @property
-    def title(self):
-        return self._title
+    def created_at(self) -> datetime:
+        return self._created_at
 
     @property
-    def description(self):
-        return self._description
+    def updated_at(self) -> datetime:
+        return self._updated_at
 
     @property
-    def date(self):
+    def deleted_at(self) -> Optional[datetime]:
+        return self._deleted_at
+
+    @property
+    def reporter(self) -> User:
+        return self._reporter
+
+    @property
+    def report_status(self) -> ReportStatus:
+        return self._report_status
+
+    @property
+    def report_type(self) -> ReportType:
+        return self._report_type
+
+    @property
+    def date(self) -> datetime:
         return self._date
 
     @property
-    def location(self):
-        return self._location
+    def title(self) -> str:
+        return self._title
 
     @property
-    def status(self):
-        return self._status
+    def description(self) -> str:
+        return self._description
 
     @property
-    def categories(self):
-        return self._categories
+    def location_name(self) -> str:
+        return self._location_name
 
     @property
-    def photos(self):
-        return self._photos
+    def latitude(self) -> Optional[float]:
+        return self._latitude
 
     @property
-    def user(self):
-        return self._user
-    
+    def longitude(self) -> Optional[float]:
+        return self._longitude
+
+    @property
+    def categories(self) -> List[Category]:
+        return self._categories.copy()
+
+    @property
+    def photos(self) -> List[str]:
+        return self._photos.copy()
+
     def update_title(self, new_title: str):
         self._title = new_title
-    
+        self._updated_at = datetime.now()
+
     def update_description(self, new_description: str):
         self._description = new_description
-    
+        self._updated_at = datetime.now()
+
     def update_date(self, new_date: datetime):
         self._date = new_date
-    
-    def update_location(self, new_location: str):
-        self._location = new_location
+        self._updated_at = datetime.now()
 
-    def update_status(self, new_status: Status):
-        self._status = new_status
-    
+    def update_location(
+        self, new_location_name: str, new_latitude: float, new_longitude: float
+    ):
+        self._location_name = new_location_name
+        self._new_latitude = new_latitude
+        self._new_longitude = new_longitude
+        self._updated_at = datetime.now()
+
+    def update_report_status(self, new_status: ReportStatus):
+        self._report_status = new_status
+        self._updated_at = datetime.now()
+
+    def update_holder(self, new_holder):
+        self._holder = new_holder
+        self._updated_at = datetime.now()
+
     def add_category(self, new_category: Category):
-        pass
+        if new_category not in self._categories:
+            self._categories.append(new_category)
+            self._updated_at = datetime.now()
 
     def remove_category(self, category: Category):
-        pass
+        if category in self._categories:
+            proposed_categories = self._categories.copy()
+            proposed_categories.remove(category)
+            self._validate_categories(proposed_categories)
+            self._categories = proposed_categories
+            self._updated_at = datetime.now()
 
     def add_photo(self, new_photo: str):
-        pass
+        if new_photo not in self._photos:
+            self._photos.append(new_photo)
+            self._updated_at = datetime.now()
 
     def remove_photo(self, photo: str):
-        pass
+        if photo in self._photos:
+            self._photos.remove(photo)
+            self._updated_at = datetime.now()
+
+    def delete(self):
+        if self._deleted_at is not None:
+            raise ValueError("Report is already deleted.")
+
+        self._deleted_at = datetime.now()
+        self._updated_at = datetime.now()
+        self.update_report_status(ReportStatus.CLOSED)
+
+    def _validate_categories(self, categories: List[Category]):
+        if not categories:
+            raise ValueError("A report must have at least one category.")
 
 
 class LostReport(Report):
     def __init__(
-        self, 
-        id: str, 
-        title: str, 
-        description: str, 
-        date: datetime, 
-        location: str, 
-        status: Status, 
+        self,
+        id: UUID,
+        created_at: datetime,
+        updated_at: datetime,
+        reporter: User,
+        report_status: ReportStatus,
+        date: datetime,
+        title: str,
+        description: str,
+        location_name: str,
         categories: List[Category],
-        photos: List[str],
-        user: User,
+        deleted_at: Optional[datetime] = None,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        photos: Optional[List[str]] = None,  # lost report boleh ga ada fotonya ^v^
     ):
-        super().__init__(id, title, description, date, location, status, categories, photos, user)
-    
+        super().__init__(
+            id,
+            created_at,
+            updated_at,
+            reporter,
+            report_status,
+            ReportType.LOST,
+            date,
+            title,
+            description,
+            location_name,
+            categories,
+            deleted_at=deleted_at,
+            latitude=latitude,
+            longitude=longitude,
+            photos=photos,
+        )
+
     def confirm_found(self):
-        pass
+        self.update_report_status(ReportStatus.RESOLVED)
 
 
 class FoundReport(Report):
     def __init__(
-        self, 
-        id: str, 
-        title: str, 
-        description: str, 
-        date: datetime, 
-        location: str, 
-        status: Status, 
+        self,
+        id: UUID,
+        created_at: datetime,
+        updated_at: datetime,
+        reporter: User,
+        report_status: ReportStatus,
+        found_status: FoundStatus,
+        date: datetime,
+        title: str,
+        description: str,
+        location_name: str,
         categories: List[Category],
-        photos: List[str],
-        user: User,
-        proof: Optional[Proof] = None
+        photos: List[str],  # found report harus ada fotonya biar ga boong ^v^
+        holder: User,
+        deleted_at: Optional[datetime] = None,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        proof: Optional[Proof] = None,
+        finder_name: Optional[str] = None,
+        finder_contact: Optional[str] = None,
     ):
-        super().__init__(id, title, description, date, location, status, categories, photos, user)
+        self._validate_photo(photos)
+
+        super().__init__(
+            id,
+            created_at,
+            updated_at,
+            reporter,
+            report_status,
+            ReportType.FOUND,
+            date,
+            title,
+            description,
+            location_name,
+            categories,
+            deleted_at=deleted_at,
+            latitude=latitude,
+            longitude=longitude,
+            photos=photos,
+        )
+
+        self._found_status = found_status
+        self._holder = holder
         self._proof = proof
+        self._finder_name = finder_name
+        self._finder_contact = finder_contact
 
     @property
-    def proof(self):
+    def found_status(self) -> FoundStatus:
+        return self._found_status
+
+    @property
+    def holder(self) -> User:
+        return self._holder
+
+    @property
+    def proof(self) -> Optional[Proof]:
         return self._proof
 
+    @property
+    def finder_name(self) -> Optional[str]:
+        return self._finder_name
+
+    @property
+    def finder_contact(self) -> Optional[str]:
+        return self._finder_contact
+
     def confirm_return(self, proof: Proof):
-        pass
-
-
-class HandoverReport(Report):
-    def __init__(
-        self, 
-        id: str, 
-        title: str, 
-        description: str, 
-        date: datetime, 
-        location: str, 
-        status: Status, 
-        categories: List[Category],
-        photos: List[str],
-        user: User,
-        notes: str,
-        proof: Optional[Proof] = None
-    ):
-        super().__init__(id, title, description, date, location, status, categories, photos, user)
-        self._notes = notes
         self._proof = proof
+        self._found_status = FoundStatus.RETURNED_TO_OWNER
+        self.update_report_status(ReportStatus.RESOLVED)
 
-    @property
-    def proof(self):
-        return self._proof
+    def remove_photo(self, photo: str):
+        if photo in self._photos:
+            proposed_photos = self._photos.copy()
+            proposed_photos.remove(photo)
+            self._validate_photo(proposed_photos)
+            self._photos = proposed_photos
+            self._updated_at = datetime.now()
 
-    @property
-    def notes(self) -> str: 
-        return self._notes
+    def transfer_to_admin(self, admin: Admin):
+        self._found_status = FoundStatus.HELD_BY_ADMIN
+        self.update_holder(admin)
 
-    def confirm_return(self, proof: Proof):
-        pass
+    def _validate_photo(self, photos: List[str]):
+        if not photos:
+            raise ValueError("A found report must have at least one photo.")

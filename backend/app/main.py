@@ -24,14 +24,14 @@ app.add_middleware(
 def health_check():
     return {"status": "ok", "app": settings.PROJECT_NAME}
 
-@app.get("/health")
-def health_check(db: Session = Depends(get_db)):
-    try:
-        db.execute(text("SELECT 1"))
-        return {"status": "ok", "message": "Ada database hore hore"}
-    except Exception as e:
-        print(f"DB Connection Error: {e}")
-        raise HTTPException(status_code=500, detail="koneksi gagal huhuuu")
+# @app.get("/health")
+# def health_check(db: Session = Depends(get_db)):
+#     try:
+#         db.execute(text("SELECT 1"))
+#         return {"status": "ok", "message": "Ada database hore hore"}
+#     except Exception as e:
+#         print(f"DB Connection Error: {e}")
+#         raise HTTPException(status_code=500, detail="koneksi gagal huhuuu")
     
 app.include_router(auth_router)
 app.include_router(report_router)

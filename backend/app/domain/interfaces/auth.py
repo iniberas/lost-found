@@ -11,6 +11,7 @@ class IPasswordHasher(ABC):
     def verify(self, plain: str, hashed: str) -> bool:
         pass
 
+
 class ITokenService(ABC):
     @abstractmethod
     def create_access_token(self, data: dict) -> str:

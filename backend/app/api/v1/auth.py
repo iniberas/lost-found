@@ -4,7 +4,8 @@ from app.domain.use_cases.auth import LoginUserUseCase, RegisterUserUseCase, Ref
 from app.api.dependencies import get_login_use_case, get_register_use_case, get_current_user, get_refresh_use_case
 from fastapi.security import OAuth2PasswordRequestForm
 
-router = APIRouter()
+
+router = APIRouter(tags=["Auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

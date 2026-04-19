@@ -20,6 +20,8 @@ dist/
 .pytest_cache/
 .coverage
 
+backend/static/images
+
 # ==========================
 # FRONTEND
 # ==========================
