@@ -10,11 +10,11 @@ from app.infrastructure.database.models.report import (
     ProofModel
 )
 from app.domain.entities.user import User
+from app.domain.entities.category import Category
+from app.domain.entities.proof import Proof
 from app.domain.entities.report import (
     LostReport,
     FoundReport,
-    Category,
-    Proof,
     ReportStatus,
 )
 from app.domain.interfaces.report import (

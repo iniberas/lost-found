@@ -1,6 +1,6 @@
 import pytest
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.domain.entities.user import User
 
 
@@ -14,8 +14,8 @@ from app.domain.entities.user import User
 def test_create_user_success(name, email, phone_number):
     user = User(
         id=uuid4(),
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         name=name,
         email=email,
         phone_number=phone_number,
@@ -52,8 +52,8 @@ def test_create_user_success(name, email, phone_number):
 def test_create_user_fails_with_invalid_data(field, invalid_data, expected_error):
     attributes = {
         "id": uuid4(),
-        "created_at": datetime.now(),
-        "updated_at": datetime.now(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
         "name": "Budi",
         "email": "budi@apps.ipb.ac.id",
         "phone_number": "+6281234567890",
@@ -76,7 +76,7 @@ def test_create_user_fails_with_invalid_data(field, invalid_data, expected_error
     ],
 )
 def test_update_user_modifies_field_and_timestamp(field, new_data):
-    past_time = datetime.now() - timedelta(days=1)
+    past_time = datetime.now(timezone.utc) - timedelta(days=1)
     user = User(
         id=uuid4(),
         created_at=past_time,
@@ -125,8 +125,8 @@ def test_update_user_modifies_field_and_timestamp(field, new_data):
 def test_update_user_fails_with_invalid_data(field, invalid_data, expected_error):
     user = User(
         id=uuid4(),
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         name="Budi",
         email="budi@apps.ipb.ac.id",
         phone_number="+6281234567890",

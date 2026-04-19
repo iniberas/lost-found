@@ -7,11 +7,11 @@ from app.domain.interfaces.report import (
 import uuid
 from datetime import datetime
 from typing import List, Optional
+from app.domain.entities.category import Category
+from app.domain.entities.proof import Proof
 from app.domain.entities.report import (
     LostReport,
     FoundReport,
-    Proof,
-    Category,
     ReportStatus,
     FoundStatus,
 )

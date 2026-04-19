@@ -1,10 +1,15 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
-from typing import Optional
 
 
 class User:
+    EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+    PHONE_REGEX = re.compile(r"^\+[1-9]\d{10,14}$")
+    NAME_REGEX = re.compile(r"^[A-Za-z\s\-\.]+$")
+    NAME_MIN_LEN = 2
+    NAME_MAX_LEN = 255
+
     def __init__(
         self,
         id: UUID,
@@ -15,9 +20,9 @@ class User:
         phone_number: str,
         password_hash: str,
     ):
-        clean_name = name.strip() if name else name
-        clean_email = email.strip().lower() if email else email
-        clean_phone = phone_number.strip() if phone_number else phone_number
+        clean_name = self._clean_text(name, "Name")
+        clean_email = self._clean_text(email, "Email").lower()
+        clean_phone = self._clean_text(phone_number, "Phone number")
 
         self._validate_name(clean_name)
         self._validate_email(clean_email)
@@ -64,41 +69,55 @@ class User:
         return hasher.verify(plain_password, self._password_hash)
 
     def update_name(self, new_name: str):
+        new_name = self._clean_text(new_name, "Name")
         self._validate_name(new_name)
         self._name = new_name
-        self._updated_at = datetime.now()
+        self._touch()
 
     def update_email(self, new_email: str):
+        new_email = self._clean_text(new_email, "Email")
         self._validate_email(new_email)
         self._email = new_email
-        self._updated_at = datetime.now()
+        self._touch()
 
     def update_phone_number(self, new_phone_number: str):
+        new_phone_number = self._clean_text(new_phone_number, "Phone number")
         self._validate_phone(new_phone_number)
         self._phone_number = new_phone_number
-        self._updated_at = datetime.now()
+        self._touch()
 
     def update_password_hash(self, new_password_hash: str):
         self._validate_password_hash(new_password_hash)
         self._password_hash = new_password_hash
-        self._updated_at = datetime.now()
+        self._touch()
 
+    def _touch(self):
+        self._updated_at = datetime.now(timezone.utc)
+    
+    def _clean_text(self, text: str, field_name: str) -> str:
+        if not text:
+            raise ValueError(f"{field_name} cannot be empty")
+            
+        cleaned_text = text.strip()
+        if not cleaned_text:
+            raise ValueError(f"{field_name} cannot be empty")
+            
+        return cleaned_text
+    
     def _validate_name(self, name: str):
-        if not name or not name.strip():
-            raise ValueError("Name cannot be empty")
+        if not self.NAME_REGEX.match(name):
+            raise ValueError("Invalid name format")
+        if len(name) < self.NAME_MIN_LEN:
+            raise ValueError("Name is too short")
+        if len(name) > self.NAME_MAX_LEN:
+            raise ValueError("Name is too long")
 
     def _validate_email(self, email: str):
-        if not email or not email.strip():
-            raise ValueError("Email cannot be empty")
-
-        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+        if not self.EMAIL_REGEX.match(email):
             raise ValueError("Invalid email format")
 
     def _validate_phone(self, phone: str):
-        if not phone or not phone.strip():
-            raise ValueError("Phone number cannot be empty")
-
-        if not re.match(r"^\+[1-9]\d{10,14}$", phone):
+        if not self.PHONE_REGEX.match(phone):
             raise ValueError("Invalid phone number format")
 
     def _validate_password_hash(self, password_hash: str):
