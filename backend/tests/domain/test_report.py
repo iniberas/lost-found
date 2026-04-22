@@ -1,17 +1,19 @@
-import pytest
-from uuid import uuid4
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
-from app.domain.entities.user import User, Admin
+import pytest
 from app.domain.entities.category import Category
+from app.domain.entities.point import Point
 from app.domain.entities.proof import Proof
 from app.domain.entities.report import (
-    ReportStatus,
-    ReportType,
+    FoundReport,
     FoundStatus,
     LostReport,
-    FoundReport,
+    ReportStatus,
+    ReportType,
 )
+from app.domain.entities.user import Admin, User
+from app.domain.exceptions import FutureDateError, StateTransitionError, ValidationError
 
 
 @pytest.fixture
@@ -23,8 +25,9 @@ def sample_user():
         name="John Doe",
         email="john@example.com",
         phone_number="+6281234567890",
-        password_hash="hashed_secret"
+        password_hash="hashed_secret",
     )
+
 
 @pytest.fixture
 def sample_admin():
@@ -35,12 +38,17 @@ def sample_admin():
         name="Admin",
         email="admin@example.com",
         phone_number="+6281234567891",
-        password_hash="hashed_secret"
+        password_hash="hashed_secret",
     )
+
 
 @pytest.fixture
 def sample_categories():
-    return [Category(id=1, name="Electronics"), Category(id=2, name="Wallets")]
+    return [
+        Category(id=uuid4(), name="Electronics"),
+        Category(id=uuid4(), name="Wallets"),
+    ]
+
 
 @pytest.fixture
 def sample_proof():
@@ -48,8 +56,9 @@ def sample_proof():
         id=uuid4(),
         created_at=datetime.now(timezone.utc),
         photos=["proof_photo1.jpg"],
-        notes="Handed over directly."
+        notes="Handed over directly to owner.",
     )
+
 
 @pytest.fixture
 def base_lost_kwargs(sample_user, sample_categories):
@@ -59,13 +68,14 @@ def base_lost_kwargs(sample_user, sample_categories):
         "updated_at": datetime.now(timezone.utc),
         "reporter": sample_user,
         "report_status": ReportStatus.OPEN,
-        "date": datetime.now(timezone.utc),
+        "incident_date": datetime.now(timezone.utc) - timedelta(hours=1),
         "title": "Lost my iPhone",
-        "description": "Lost near the library.",
+        "description": "Lost near the main library building.",
         "location_name": "Library",
         "categories": [sample_categories[0]],
-        "photos": ["photo1.jpg"]
+        "photos": ["photo1.jpg"],
     }
+
 
 @pytest.fixture
 def base_found_kwargs(sample_user, sample_categories):
@@ -76,191 +86,283 @@ def base_found_kwargs(sample_user, sample_categories):
         "reporter": sample_user,
         "report_status": ReportStatus.OPEN,
         "found_status": FoundStatus.HELD_BY_FINDER,
-        "date": datetime.now(timezone.utc),
+        "incident_date": datetime.now(timezone.utc) - timedelta(hours=1),
         "title": "Found an iPhone",
-        "description": "Found on a bench.",
+        "description": "Found on a bench near the main entrance.",
         "location_name": "Park Bench",
         "categories": [sample_categories[0]],
         "photos": ["found_phone.jpg"],
-        "holder": sample_user
+        "holder": sample_user,
     }
 
 
-def test_report_add_category(base_lost_kwargs, sample_categories):
+@pytest.mark.parametrize(
+    "photos, location_point",
+    [
+        (None, None),
+        ([], None),
+        (["photo1.jpg"], None),
+        (["photo1.jpg"], Point(-6.200, 106.816)),
+        (["p.jpg"] * 10, Point(0.0, 0.0)),
+    ],
+)
+def test_create_lost_report_success(base_lost_kwargs, photos, location_point):
+    base_lost_kwargs["photos"] = photos
+    base_lost_kwargs["location_point"] = location_point
     report = LostReport(**base_lost_kwargs)
-    new_cat = sample_categories[1]
-    
-    past_time = report.updated_at
-    report.add_category(new_cat)
-    
-    assert len(report.categories) == 2
-    assert new_cat in report.categories
-    assert report.updated_at > past_time
+
+    assert report.report_type == ReportType.LOST
+    assert report.photos == (photos if photos else [])
+    assert report.location_point == location_point
 
 
 @pytest.mark.parametrize(
-    "field_to_update, update_method_name, new_val",
+    "field, invalid_value, expected_error",
     [
-        ("title", "update_title", "New Title"),
-        ("description", "update_description", "New Description"),
-        ("date", "update_date", datetime.now(timezone.utc) + timedelta(days=1)),
-        ("report_status", "update_report_status", ReportStatus.RESOLVED),
-    ]
+        ("title", "", "Title cannot be empty"),
+        ("title", "   ", "Title cannot be empty"),
+        ("title", "A", "Title must be at least 2 characters long"),
+        ("title", "A" * 256, "Title cannot exceed 255 characters"),
+        ("description", "", "Description cannot be empty"),
+        ("description", "   ", "Description cannot be empty"),
+        ("description", "Short", "Description must be at least 10 characters long"),
+        ("description", "A" * 2048, "Description cannot exceed 2047 characters"),
+        ("location_name", "", "Location name cannot be empty"),
+        ("location_name", "   ", "Location name cannot be empty"),
+        ("location_name", "A", "Location name must be at least 2 characters long"),
+        ("location_name", "A" * 256, "Location name cannot exceed 255 characters"),
+        ("categories", [], "A report must have at least one category assigned"),
+        (
+            "photos",
+            ["p.jpg"] * 11,
+            "A report cannot exceed the maximum limit of 10 photos",
+        ),
+    ],
 )
-def test_update_report_modifies_field_and_timestamp(
-    base_lost_kwargs, field_to_update, update_method_name, new_val
+def test_create_lost_report_fails_with_invalid_data(
+    base_lost_kwargs, field, invalid_value, expected_error
+):
+    base_lost_kwargs[field] = invalid_value
+    with pytest.raises(ValidationError, match=expected_error):
+        LostReport(**base_lost_kwargs)
+
+
+def test_create_lost_report_fails_with_future_incident_date(base_lost_kwargs):
+    base_lost_kwargs["incident_date"] = datetime.now(timezone.utc) + timedelta(days=1)
+    with pytest.raises(FutureDateError):
+        LostReport(**base_lost_kwargs)
+
+
+def test_create_lost_report_fails_with_naive_incident_date(base_lost_kwargs):
+    base_lost_kwargs["incident_date"] = datetime(2024, 1, 1)
+    with pytest.raises(ValidationError):
+        LostReport(**base_lost_kwargs)
+
+
+@pytest.mark.parametrize(
+    "field, update_method, new_value",
+    [
+        ("title", "update_title", "New Title Here"),
+        ("description", "update_description", "New Description Here!"),
+        (
+            "incident_date",
+            "update_incident_date",
+            datetime.now(timezone.utc) - timedelta(days=1),
+        ),
+    ],
+)
+def test_update_lost_report_modifies_field_and_timestamp(
+    base_lost_kwargs, field, update_method, new_value
 ):
     past_time = datetime.now(timezone.utc) - timedelta(days=1)
     base_lost_kwargs["updated_at"] = past_time
     report = LostReport(**base_lost_kwargs)
 
-    update_method = getattr(report, update_method_name)
-    update_method(new_val)
+    getattr(report, update_method)(new_value)
 
-    assert getattr(report, field_to_update) == new_val
-    assert report.updated_at > past_time
-
-
-def test_update_report_location_modifies_fields_and_timestamp(base_lost_kwargs):
-    past_time = datetime.now(timezone.utc) - timedelta(days=1)
-    base_lost_kwargs["updated_at"] = past_time
-    report = LostReport(**base_lost_kwargs)
-    
-    report.update_location("New Building", -6.2, 106.8)
-    
-    assert report.location_name == "New Building"
-    assert report.latitude == -6.2
-    assert report.longitude ==  106.8
+    assert getattr(report, field) == new_value
     assert report.updated_at > past_time
 
 
 @pytest.mark.parametrize(
-    "method_name, invalid_data, expected_error",
+    "method, invalid_value, expected_error",
     [
         ("update_title", "", "Title cannot be empty"),
         ("update_title", "   ", "Title cannot be empty"),
-    ]
+        ("update_title", "A", "Title must be at least 2 characters long"),
+        ("update_description", "", "Description cannot be empty"),
+        ("update_description", "   ", "Description cannot be empty"),
+        (
+            "update_description",
+            "Tiny",
+            "Description must be at least 10 characters long",
+        ),
+    ],
 )
-def test_update_report_fails_with_invalid_data(
-    base_lost_kwargs, method_name, invalid_data, expected_error
+def test_update_lost_report_fails_with_invalid_data(
+    base_lost_kwargs, method, invalid_value, expected_error
 ):
     report = LostReport(**base_lost_kwargs)
-    update_method = getattr(report, method_name)
-    
-    with pytest.raises(ValueError, match=expected_error):
-        update_method(invalid_data)
+    with pytest.raises(ValidationError, match=expected_error):
+        getattr(report, method)(invalid_value)
 
 
-def test_report_add_duplicate_category_fails(base_lost_kwargs):
+def test_update_incident_date_fails_with_future_date(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
-    existing_cat = report.categories[0]
-    
-    with pytest.raises(ValueError, match="Category already exists in this report"):
-        report.add_category(existing_cat)
+    with pytest.raises(FutureDateError):
+        report.update_incident_date(datetime.now(timezone.utc) + timedelta(days=1))
 
 
-def test_report_remove_category(base_lost_kwargs, sample_categories):
-    base_lost_kwargs["categories"] = sample_categories
+def test_update_location_name_and_point(base_lost_kwargs):
+    past_time = datetime.now(timezone.utc) - timedelta(days=1)
+    base_lost_kwargs["updated_at"] = past_time
     report = LostReport(**base_lost_kwargs)
-    cat_to_remove = sample_categories[0]
-    
-    past_time = report.updated_at
-    report.remove_category(cat_to_remove)
-    
-    assert len(report.categories) == 1
-    assert cat_to_remove not in report.categories
+
+    new_point = Point(-6.2, 106.8)
+    report.update_location_name("New Building")
+    report.update_location_point(new_point)
+
+    assert report.location_name == "New Building"
+    assert report.location_point == new_point
     assert report.updated_at > past_time
 
 
-def test_report_remove_last_category(base_lost_kwargs):
+def test_update_location_point_to_none_clears_it(base_lost_kwargs):
+    base_lost_kwargs["location_point"] = Point(-6.2, 106.8)
+    report = LostReport(**base_lost_kwargs)
+    report.update_location_point(None)
+    assert report.location_point is None
+
+
+@pytest.mark.parametrize(
+    "method, invalid_location, expected_error",
+    [
+        ("update_location_name", "", "Location name cannot be empty"),
+        ("update_location_name", "   ", "Location name cannot be empty"),
+        (
+            "update_location_name",
+            "A",
+            "Location name must be at least 2 characters long",
+        ),
+    ],
+)
+def test_update_location_name_fails_with_invalid_data(
+    base_lost_kwargs, method, invalid_location, expected_error
+):
+    report = LostReport(**base_lost_kwargs)
+    with pytest.raises(ValidationError, match=expected_error):
+        getattr(report, method)(invalid_location)
+
+
+def test_add_category_to_lost_report(base_lost_kwargs, sample_categories):
+    report = LostReport(**base_lost_kwargs)
+    past_time = report.updated_at
+    new_cat = sample_categories[1]
+
+    report.add_category(new_cat)
+
+    assert new_cat in report.categories
+    assert len(report.categories) == 2
+    assert report.updated_at > past_time
+
+
+def test_add_duplicate_category_fails(base_lost_kwargs):
+    report = LostReport(**base_lost_kwargs)
+    existing = report.categories[0]
+    with pytest.raises(ValidationError, match="already exists"):
+        report.add_category(existing)
+
+
+def test_remove_category_from_lost_report(base_lost_kwargs, sample_categories):
+    base_lost_kwargs["categories"] = list(sample_categories)
+    report = LostReport(**base_lost_kwargs)
+    past_time = report.updated_at
+    to_remove = sample_categories[0]
+
+    report.remove_category(to_remove)
+
+    assert to_remove not in report.categories
+    assert report.updated_at > past_time
+
+
+def test_remove_last_category_fails(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
     last_cat = report.categories[0]
-    
-    with pytest.raises(ValueError, match="A report must have at least one category"):
+    with pytest.raises(ValidationError, match="at least one category"):
         report.remove_category(last_cat)
 
 
-def test_report_add_photo(base_lost_kwargs):
+def test_remove_nonexistent_category_fails(base_lost_kwargs, sample_categories):
+    report = LostReport(**base_lost_kwargs)
+    absent_cat = sample_categories[1]
+    with pytest.raises(ValidationError, match="does not exist"):
+        report.remove_category(absent_cat)
+
+
+def test_categories_getter_is_defensive_copy(base_lost_kwargs):
+    report = LostReport(**base_lost_kwargs)
+    report.categories.append(Category.new_category("Injected"))
+    assert len(report.categories) == 1
+
+
+def test_add_photo_to_report(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
     past_time = report.updated_at
-    
     report.add_photo("new_photo.jpg")
-    
     assert "new_photo.jpg" in report.photos
     assert report.updated_at > past_time
 
 
-def test_report_remove_photo(base_lost_kwargs):
+def test_add_duplicate_photo_fails(base_lost_kwargs):
+    report = LostReport(**base_lost_kwargs)
+    existing_photo = report.photos[0]
+    with pytest.raises(ValidationError, match="already exists"):
+        report.add_photo(existing_photo)
+
+
+def test_add_photo_fails_if_max_limit_reached(base_lost_kwargs):
+    base_lost_kwargs["photos"] = [f"p{i}.jpg" for i in range(10)]
+    report = LostReport(**base_lost_kwargs)
+    with pytest.raises(ValidationError, match="Maximum photo limit|maximum limit"):
+        report.add_photo("overflow.jpg")
+
+
+def test_remove_photo_from_report(base_lost_kwargs):
     base_lost_kwargs["photos"] = ["photo1.jpg", "photo2.jpg"]
     report = LostReport(**base_lost_kwargs)
     past_time = report.updated_at
-    
     report.remove_photo("photo1.jpg")
-    
     assert "photo1.jpg" not in report.photos
     assert report.updated_at > past_time
 
 
-def test_report_add_photo_fails_if_max_limit_reached(base_lost_kwargs):
-    base_lost_kwargs["photos"] = ["p1.jpg", "p2.jpg", "p3.jpg", "p4.jpg", "p5.jpg"]
+def test_remove_nonexistent_photo_fails(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
-    
-    with pytest.raises(ValueError, match="Maximum photo limit reached"):
-        report.add_photo("p6.jpg")
+    with pytest.raises(ValidationError, match="does not exist"):
+        report.remove_photo("nonexistent.jpg")
 
 
-def test_report_delete(base_lost_kwargs):
+def test_photos_getter_is_defensive_copy(base_lost_kwargs):
+    report = LostReport(**base_lost_kwargs)
+    report.photos.append("injected.jpg")
+    assert "injected.jpg" not in report.photos
+
+
+def test_lost_report_delete(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
     past_time = report.updated_at
-    
     report.delete()
-    
+
     assert report.deleted_at is not None
     assert report.report_status == ReportStatus.CLOSED
     assert report.updated_at > past_time
 
 
-def test_report_delete_fails_if_already_deleted(base_lost_kwargs):
+def test_lost_report_delete_fails_if_already_deleted(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
     report.delete()
-    
-    with pytest.raises(ValueError, match="Report is already deleted"):
+    with pytest.raises((StateTransitionError, ValueError)):
         report.delete()
-
-
-@pytest.mark.parametrize(
-    "photos, lat, lon",
-    [
-        (None, None, None),
-        (["photo1.jpg"], -6.200, 106.816),
-    ]
-)
-def test_create_lost_report_success(base_lost_kwargs, photos, lat, lon):
-    base_lost_kwargs["photos"] = photos
-    base_lost_kwargs["latitude"] = lat
-    base_lost_kwargs["longitude"] = lon
-    
-    report = LostReport(**base_lost_kwargs)
-    
-    assert report.report_type == ReportType.LOST
-    assert report.photos == (photos if photos else [])
-    assert report.latitude == lat
-    assert report.longitude == lon
-
-
-@pytest.mark.parametrize(
-    "field, invalid_data, expected_error",
-    [
-        ("title", "", "Title cannot be empty"),
-        ("categories", [], "A report must have at least one category"),
-    ]
-)
-def test_create_lost_report_fails_with_invalid_data(
-    base_lost_kwargs, field, invalid_data, expected_error
-):
-    base_lost_kwargs[field] = invalid_data
-    with pytest.raises(ValueError, match=expected_error):
-        LostReport(**base_lost_kwargs)
 
 
 def test_lost_report_confirm_found(base_lost_kwargs):
@@ -269,75 +371,231 @@ def test_lost_report_confirm_found(base_lost_kwargs):
     assert report.report_status == ReportStatus.RESOLVED
 
 
-def test_lost_report_confirm_found_fails_if_already_found(base_lost_kwargs):
+def test_lost_report_confirm_found_fails_if_already_resolved(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
     report.confirm_found()
-    
-    with pytest.raises(ValueError, match="Report is already resolved"):
+    with pytest.raises((StateTransitionError, ValueError), match="already"):
         report.confirm_found()
 
 
-def test_create_found_report_success(base_found_kwargs):
-    report = FoundReport(**base_found_kwargs)
-    
-    assert report.report_type == ReportType.FOUND
-    assert report.found_status == FoundStatus.HELD_BY_FINDER
-    assert len(report.photos) > 0
+def test_lost_report_confirm_found_fails_if_deleted(base_lost_kwargs):
+    report = LostReport(**base_lost_kwargs)
+    report.delete()
+    with pytest.raises((StateTransitionError, ValueError)):
+        report.confirm_found()
 
 
 @pytest.mark.parametrize(
-    "field, invalid_data, expected_error",
+    "method, arg_factory",
+    [
+        ("update_title", lambda **_: "New Title Here"),
+        ("update_description", lambda **_: "New Description Here!"),
+        ("update_location_name", lambda **_: "New Location"),
+        ("add_photo", lambda **_: "new.jpg"),
+        ("add_category", lambda **kw: kw["cat"]),
+    ],
+)
+def test_mutations_fail_after_delete(
+    base_lost_kwargs, sample_categories, method, arg_factory
+):
+    report = LostReport(**base_lost_kwargs)
+    report.delete()
+    arg = arg_factory(cat=sample_categories[1])
+    with pytest.raises((StateTransitionError, ValueError)):
+        getattr(report, method)(arg)
+
+
+@pytest.mark.parametrize(
+    "photos, location_point",
+    [
+        (["photo.jpg"], None),
+        (["p.jpg"] * 10, Point(-6.2, 106.8)),
+        (["photo1.jpg", "photo2.jpg"], None),
+    ],
+)
+def test_create_found_report_success(base_found_kwargs, photos, location_point):
+    base_found_kwargs["photos"] = photos
+    base_found_kwargs["location_point"] = location_point
+    report = FoundReport(**base_found_kwargs)
+
+    assert report.report_type == ReportType.FOUND
+    assert report.found_status == FoundStatus.HELD_BY_FINDER
+    assert report.photos == photos
+
+
+@pytest.mark.parametrize(
+    "field, invalid_value, expected_error",
     [
         ("title", "", "Title cannot be empty"),
-        ("categories", [], "A report must have at least one category"),
+        ("categories", [], "A report must have at least one category assigned"),
         ("photos", [], "A found report must have at least one photo"),
         ("photos", None, "A found report must have at least one photo"),
-    ]
+        (
+            "photos",
+            ["p.jpg"] * 11,
+            "A report cannot exceed the maximum limit of 10 photos",
+        ),
+    ],
 )
 def test_create_found_report_fails_with_invalid_data(
-    base_found_kwargs, field, invalid_data, expected_error
+    base_found_kwargs, field, invalid_value, expected_error
 ):
-    base_found_kwargs[field] = invalid_data
-    with pytest.raises(ValueError, match=expected_error):
+    base_found_kwargs[field] = invalid_value
+    with pytest.raises(ValidationError, match=expected_error):
+        FoundReport(**base_found_kwargs)
+
+
+@pytest.mark.parametrize(
+    "finder_name, finder_contact",
+    [
+        (None, None),
+        ("Budi", "+6281234567890"),
+        ("AB", "ab"),
+    ],
+)
+def test_create_found_report_with_finder_info_success(
+    base_found_kwargs, finder_name, finder_contact
+):
+    base_found_kwargs["finder_name"] = finder_name
+    base_found_kwargs["finder_contact"] = finder_contact
+    report = FoundReport(**base_found_kwargs)
+    assert report.finder_name == finder_name
+    assert report.finder_contact == finder_contact
+
+
+@pytest.mark.parametrize(
+    "finder_name, finder_contact, expected_error",
+    [
+        ("A", None, "Finder name must be at least 2 characters long"),
+        ("A" * 256, None, "Finder name cannot exceed 255 characters"),
+        (None, "A", "Finder contact must be at least 2 characters long"),
+        (None, "A" * 256, "Finder contact cannot exceed 255 characters"),
+        ("  ", None, "Finder name cannot be empty"),
+        (None, "  ", "Finder contact cannot be empty"),
+    ],
+)
+def test_create_found_report_fails_with_invalid_finder_info(
+    base_found_kwargs, finder_name, finder_contact, expected_error
+):
+    if finder_name is not None:
+        base_found_kwargs["finder_name"] = finder_name
+    if finder_contact is not None:
+        base_found_kwargs["finder_contact"] = finder_contact
+    with pytest.raises(ValidationError, match=expected_error):
         FoundReport(**base_found_kwargs)
 
 
 def test_found_report_confirm_return(base_found_kwargs, sample_proof):
     report = FoundReport(**base_found_kwargs)
     report.confirm_return(sample_proof)
-    
+
     assert report.found_status == FoundStatus.RETURNED_TO_OWNER
     assert report.report_status == ReportStatus.RESOLVED
     assert report.proof == sample_proof
 
 
-def test_found_report_confirm_return_fails_if_already_returned(base_found_kwargs, sample_proof):
+def test_found_report_confirm_return_fails_if_already_returned(
+    base_found_kwargs, sample_proof
+):
     report = FoundReport(**base_found_kwargs)
     report.confirm_return(sample_proof)
-    
-    with pytest.raises(ValueError, match="Item has already been returned"):
+    with pytest.raises((StateTransitionError, ValueError), match="already"):
         report.confirm_return(sample_proof)
 
 
-def test_found_report_remove_last_photo_fails(base_found_kwargs):
+def test_found_report_confirm_return_fails_if_deleted(base_found_kwargs, sample_proof):
     report = FoundReport(**base_found_kwargs)
-    last_photo = report.photos[0]
-    
-    with pytest.raises(ValueError, match="A found report must have at least one photo"):
-        report.remove_photo(last_photo)
+    report.delete()
+    with pytest.raises((StateTransitionError, ValueError)):
+        report.confirm_return(sample_proof)
 
 
-def test_found_report_transfer_to_admin(base_found_kwargs, sample_admin):
+def test_found_report_hand_over_to_admin(base_found_kwargs, sample_admin):
     report = FoundReport(**base_found_kwargs)
-    report.transfer_to_admin(sample_admin)
-    
+    report.hand_over_to_admin(sample_admin)
+
     assert report.found_status == FoundStatus.HELD_BY_ADMIN
     assert report.holder == sample_admin
+    assert report.handed_over_at is not None
 
 
-def test_found_report_transfer_to_admin_fails_if_already_returned(base_found_kwargs, sample_admin, sample_proof):
+def test_found_report_hand_over_to_admin_fails_if_not_admin(
+    base_found_kwargs, sample_user
+):
+    report = FoundReport(**base_found_kwargs)
+    with pytest.raises(ValidationError, match="Only an admin"):
+        report.hand_over_to_admin(sample_user)
+
+
+def test_found_report_hand_over_to_admin_fails_if_already_returned(
+    base_found_kwargs, sample_admin, sample_proof
+):
     report = FoundReport(**base_found_kwargs)
     report.confirm_return(sample_proof)
-    
-    with pytest.raises(ValueError, match="Cannot transfer an item that has already been returned"):
-        report.transfer_to_admin(sample_admin)
+    with pytest.raises(
+        (StateTransitionError, ValueError), match="already been returned"
+    ):
+        report.hand_over_to_admin(sample_admin)
+
+
+def test_found_report_hand_over_to_admin_fails_if_already_held_by_admin(
+    base_found_kwargs, sample_admin
+):
+    report = FoundReport(**base_found_kwargs)
+    report.hand_over_to_admin(sample_admin)
+    with pytest.raises(
+        (StateTransitionError, ValueError), match="already been handed over"
+    ):
+        report.hand_over_to_admin(sample_admin)
+
+
+def test_found_report_hand_over_to_admin_fails_if_deleted(
+    base_found_kwargs, sample_admin
+):
+    report = FoundReport(**base_found_kwargs)
+    report.delete()
+    with pytest.raises((StateTransitionError, ValueError)):
+        report.hand_over_to_admin(sample_admin)
+
+
+def test_found_report_remove_last_photo_fails(base_found_kwargs):
+    base_found_kwargs["photos"] = ["only_photo.jpg"]
+    report = FoundReport(**base_found_kwargs)
+    with pytest.raises(ValidationError, match="at least one photo"):
+        report.remove_photo("only_photo.jpg")
+
+
+def test_found_report_remove_photo_succeeds_when_multiple(base_found_kwargs):
+    base_found_kwargs["photos"] = ["photo1.jpg", "photo2.jpg"]
+    report = FoundReport(**base_found_kwargs)
+    report.remove_photo("photo1.jpg")
+    assert "photo1.jpg" not in report.photos
+    assert len(report.photos) == 1
+
+
+def test_report_equality_same_id(base_lost_kwargs):
+    r1 = LostReport(**base_lost_kwargs)
+    base_lost_kwargs["title"] = "Different Title OK"
+    r2 = LostReport(**base_lost_kwargs)
+    assert r1 == r2
+
+
+def test_report_inequality_different_id(base_lost_kwargs):
+    r1 = LostReport(**base_lost_kwargs)
+    base_lost_kwargs["id"] = uuid4()
+    r2 = LostReport(**base_lost_kwargs)
+    assert r1 != r2
+
+
+def test_report_not_equal_to_non_report(base_lost_kwargs):
+    report = LostReport(**base_lost_kwargs)
+    assert report != "not a report"
+    assert report is not None
+
+
+def test_reports_hashable_and_usable_in_set(base_lost_kwargs):
+    r1 = LostReport(**base_lost_kwargs)
+    base_lost_kwargs["id"] = uuid4()
+    r2 = LostReport(**base_lost_kwargs)
+    s = {r1, r2}
+    assert len(s) == 2
