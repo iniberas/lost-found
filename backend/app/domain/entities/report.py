@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Self
 
 from app.domain.entities.category import Category
+from app.domain.entities.point import Point
 from app.domain.entities.proof import Proof
 from app.domain.entities.user import Admin, User
 from app.domain.exceptions import FutureDateError, StateTransitionError, ValidationError
@@ -49,8 +50,7 @@ class Report:
         location_name: str,
         categories: List[Category],
         deleted_at: Optional[datetime] = None,
-        latitude: Optional[float] = None,  # optional biar ga maksa
-        longitude: Optional[float] = None,
+        location_point: Optional[Point] = None,  # optional biar ga maksa
         photos: Optional[List[str]] = None,
     ):
         title = self._clean_text(title, "Title")
@@ -59,13 +59,13 @@ class Report:
         categories = categories.copy()
         photos = photos.copy() if photos is not None else []
 
+        self._validate_timestamp(created_at, "Created at")
+        self._validate_timestamp(updated_at, "Updated at")
+        if deleted_at is not None:
+            self._validate_timestamp(deleted_at, "Deleted at")
         self._validate_title(title)
         self._validate_description(description)
         self._validate_location_name(location_name)
-        # NOTE: ini aturan validate klo salah satu none
-        # NOTE: mending bikin class baru sih :P
-        self._validate_latitude(latitude)
-        self._validate_longitude(longitude)
         self._validate_categories(categories)
         self._validate_photos(photos)
         self._validate_incident_date(incident_date)
@@ -81,10 +81,17 @@ class Report:
         self._title = title
         self._description = description
         self._location_name = location_name
-        self._latitude = latitude
-        self._longitude = longitude
+        self._location_point = location_point
         self._categories = categories
         self._photos = photos
+
+    def __eq__(self, other):
+        if not isinstance(other, Report):
+            return False
+        return self._id == other.id
+
+    def __hash__(self):
+        return hash(self._id)
 
     @property
     def id(self) -> uuid.UUID:
@@ -131,12 +138,8 @@ class Report:
         return self._location_name
 
     @property
-    def latitude(self) -> Optional[float]:
-        return self._latitude
-
-    @property
-    def longitude(self) -> Optional[float]:
-        return self._longitude
+    def location_point(self) -> Optional[Point]:
+        return self._location_point
 
     @property
     def categories(self) -> List[Category]:
@@ -169,27 +172,25 @@ class Report:
         self._incident_date = new_incident_date
         self._touch()
 
-    # NOTE: mending pisah aja mungkin
-    def update_location(
+    def update_location_name(
         self,
         new_location_name: str,
-        new_latitude: Optional[float] = None,
-        new_longitude: Optional[float] = None,
     ):
         self._ensure_active()
 
         new_location_name = self._clean_text(new_location_name, "Location name")
-
         self._validate_location_name(new_location_name)
-        self._validate_latitude(new_latitude)
-        self._validate_longitude(new_longitude)
 
         self._location_name = new_location_name
-        self._latitude = new_latitude
-        self._longitude = new_longitude
         self._touch()
 
-    def update_report_status(self, new_report_status: ReportStatus):
+    def update_location_point(self, new_location_point: Optional[Point]):
+        self._ensure_active()
+
+        self._location_point = new_location_point
+        self._touch()
+
+    def _update_report_status(self, new_report_status: ReportStatus):
         self._ensure_active()
 
         self._report_status = new_report_status
@@ -269,9 +270,13 @@ class Report:
 
         return cleaned_text
 
+    def _validate_timestamp(self, dt: datetime, field_name: str):
+        if dt.tzinfo is None:
+            raise ValidationError(f"{field_name} must include timezone information")
+
     def _validate_incident_date(self, incident_date: datetime):
-        if incident_date.tzinfo is None:
-            raise ValidationError("Incident date must include timezone information.")
+        self._validate_timestamp(incident_date, "Incident date")
+
         if incident_date > datetime.now(timezone.utc):
             raise FutureDateError("Incident date cannot be in the future")
 
@@ -305,20 +310,6 @@ class Report:
                 f"Location name cannot exceed {self.LOCATION_NAME_MAX_LEN} characters"
             )
 
-    def _validate_latitude(self, latitude: Optional[float]):
-        if latitude is None:
-            return
-
-        if latitude > 90 or latitude < -90:
-            raise ValidationError("Latitude must be between -90 and 90 degrees")
-
-    def _validate_longitude(self, longitude: Optional[float]):
-        if longitude is None:
-            return
-
-        if longitude > 180 or longitude < -180:
-            raise ValidationError("Longitude must be between -180 and 180 degrees")
-
     def _validate_categories(self, categories: List[Category]):
         if not categories:
             raise ValidationError("A report must have at least one category assigned")
@@ -344,8 +335,7 @@ class LostReport(Report):
         location_name: str,
         categories: List[Category],
         deleted_at: Optional[datetime] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        location_point: Optional[Point] = None,
         photos: Optional[List[str]] = None,  # lost report boleh ga ada fotonya ^v^
     ):
         super().__init__(
@@ -361,8 +351,7 @@ class LostReport(Report):
             location_name,
             categories,
             deleted_at=deleted_at,
-            latitude=latitude,
-            longitude=longitude,
+            location_point=location_point,
             photos=photos,
         )
 
@@ -375,10 +364,9 @@ class LostReport(Report):
         description: str,
         location_name: str,
         categories: List[Category],
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        location_point: Optional[Point] = None,
         photos: Optional[List[str]] = None,
-    ):
+    ) -> Self:
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at
@@ -394,8 +382,7 @@ class LostReport(Report):
             description,
             location_name,
             categories,
-            latitude=latitude,
-            longitude=longitude,
+            location_point=location_point,
             photos=photos,
         )
 
@@ -404,10 +391,15 @@ class LostReport(Report):
 
         if self._report_status == ReportStatus.RESOLVED:
             raise StateTransitionError("This report is already marked as resolved")
-        self.update_report_status(ReportStatus.RESOLVED)
+        self._update_report_status(ReportStatus.RESOLVED)
 
 
 class FoundReport(Report):
+    FINDER_NAME_MIN_LEN = 2
+    FINDER_NAME_MAX_LEN = 255
+    FINDER_CONTACT_MIN_LEN = 2
+    FINDER_CONTACT_MAX_LEN = 255
+
     def __init__(
         self,
         id: uuid.UUID,
@@ -425,8 +417,7 @@ class FoundReport(Report):
         holder: User,
         deleted_at: Optional[datetime] = None,
         handed_over_at: Optional[datetime] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        location_point: Optional[Point] = None,
         proof: Optional[Proof] = None,
         finder_name: Optional[str] = None,
         finder_contact: Optional[str] = None,
@@ -444,10 +435,20 @@ class FoundReport(Report):
             location_name,
             categories,
             deleted_at=deleted_at,
-            latitude=latitude,
-            longitude=longitude,
+            location_point=location_point,
             photos=photos,
         )
+        if handed_over_at is not None:
+            self._validate_timestamp(handed_over_at, "Handed over at")
+
+        if finder_name is not None:
+            finder_name = self._clean_text(finder_name, "Finder name")
+            self._validate_finder_name(finder_name)
+
+        if finder_contact is not None:
+            finder_contact = self._clean_text(finder_contact, "Finder contact")
+            self._validate_finder_contact(finder_contact)
+
         self._handed_over_at = handed_over_at
         self._found_status = found_status
         self._holder = holder
@@ -465,10 +466,9 @@ class FoundReport(Report):
         location_name: str,
         categories: List[Category],
         photos: List[str],
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        location_point: Optional[Point] = None,
         proof: Optional[Proof] = None,
-    ):
+    ) -> Self:
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at
@@ -489,8 +489,7 @@ class FoundReport(Report):
             categories,
             photos,
             holder,
-            latitude=latitude,
-            longitude=longitude,
+            location_point=location_point,
             proof=proof,
         )
 
@@ -506,10 +505,9 @@ class FoundReport(Report):
         photos: List[str],
         finder_name: str,
         finder_contact: str,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        location_point: Optional[Point] = None,
         proof: Optional[Proof] = None,
-    ):
+    ) -> Self:
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at
@@ -532,8 +530,7 @@ class FoundReport(Report):
             photos,
             holder,
             handed_over_at=handed_over_at,
-            latitude=latitude,
-            longitude=longitude,
+            location_point=location_point,
             proof=proof,
             finder_name=finder_name,
             finder_contact=finder_contact,
@@ -569,7 +566,7 @@ class FoundReport(Report):
         self._holder = new_holder
         self._touch()
 
-    def update_found_status(self, new_found_status: FoundStatus):
+    def _update_found_status(self, new_found_status: FoundStatus):
         self._ensure_active()
 
         self._found_status = new_found_status
@@ -582,11 +579,14 @@ class FoundReport(Report):
             raise StateTransitionError("This item has already been marked as returned")
 
         self._proof = proof
-        self.update_found_status(FoundStatus.RETURNED_TO_OWNER)
-        self.update_report_status(ReportStatus.RESOLVED)
+        self._update_found_status(FoundStatus.RETURNED_TO_OWNER)
+        self._update_report_status(ReportStatus.RESOLVED)
 
     def hand_over_to_admin(self, admin: Admin):
         self._ensure_active()
+
+        if not isinstance(admin, Admin):
+            raise ValidationError("Only an admin can accept a handed over item")
 
         if self._report_status == ReportStatus.RESOLVED:
             raise StateTransitionError(
@@ -598,9 +598,29 @@ class FoundReport(Report):
                 "Cannot hand over an item that has already been handed over"
             )
 
-        self.update_found_status(FoundStatus.HELD_BY_ADMIN)
+        self._update_found_status(FoundStatus.HELD_BY_ADMIN)
         self._handed_over_at = datetime.now(timezone.utc)
         self.update_holder(admin)
+
+    def _validate_finder_name(self, finder_name: str):
+        if len(finder_name) < self.FINDER_NAME_MIN_LEN:
+            raise ValidationError(
+                f"Finder name must be at least {self.FINDER_NAME_MIN_LEN} characters long"
+            )
+        if len(finder_name) > self.FINDER_NAME_MAX_LEN:
+            raise ValidationError(
+                f"Finder name cannot exceed {self.FINDER_NAME_MAX_LEN} characters"
+            )
+
+    def _validate_finder_contact(self, finder_contact: str):
+        if len(finder_contact) < self.FINDER_CONTACT_MIN_LEN:
+            raise ValidationError(
+                f"Finder contact must be at least {self.FINDER_CONTACT_MIN_LEN} characters long"
+            )
+        if len(finder_contact) > self.FINDER_CONTACT_MAX_LEN:
+            raise ValidationError(
+                f"Finder contact cannot exceed {self.FINDER_CONTACT_MAX_LEN} characters"
+            )
 
     def _validate_photos(self, photos: List[str]):
         if not photos:
