@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.auth import TokenResponse, UserLoginRequest, UserResponse, UserRegisterRequest, AccessTokenResponse, RefreshTokenRequest
 from app.domain.use_cases.auth import LoginUserUseCase, RegisterUserUseCase, RefreshTokenUseCase
 from app.api.dependencies import get_login_use_case, get_register_use_case, get_current_user, get_refresh_use_case
+from fastapi.security import OAuth2PasswordRequestForm
 
-router = APIRouter()
+
+router = APIRouter(tags=["Auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -33,3 +35,13 @@ def refresh(request: RefreshTokenRequest, use_case: RefreshTokenUseCase = Depend
 @router.get("/user/me", response_model=UserResponse)
 def read_user_me(current_user = Depends(get_current_user)):
     return current_user
+
+
+
+@router.post("/swagger-thing", include_in_schema=False) # gatau ga ngerti
+async def login_for_swagger(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    use_case: LoginUserUseCase = Depends(get_login_use_case)
+):
+    # Swagger kirim email ke 'username'
+    return use_case.execute(form_data.username, form_data.password)
