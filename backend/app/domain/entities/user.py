@@ -180,4 +180,12 @@ class User:
 
 
 class Admin(User):
-    pass
+    @classmethod
+    def new_admin(
+        cls, name: str, email: str, phone_number: str, password_hash: str
+    ) -> Self:
+        id = uuid.uuid4()
+        created_at = datetime.now(timezone.utc)
+        updated_at = created_at
+
+        return cls(id, created_at, updated_at, name, email, phone_number, password_hash)

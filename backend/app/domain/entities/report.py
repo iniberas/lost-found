@@ -196,52 +196,18 @@ class Report:
         self._report_status = new_report_status
         self._touch()
 
-    def add_category(self, new_category: Category):
+    def update_categories(self, new_categories: List[Category]):
         self._ensure_active()
 
-        if new_category in self._categories:
-            raise ValidationError("This category already exists in this report")
-
-        self._categories.append(new_category)
+        self._validate_categories(new_categories)
+        self._categories = new_categories
         self._touch()
 
-    def remove_category(self, category: Category):
+    def update_photos(self, new_photos: List[str]):
         self._ensure_active()
 
-        if category not in self._categories:
-            raise ValidationError("This category does not exist in this report")
-
-        proposed_categories = self._categories.copy()
-        proposed_categories.remove(category)
-        self._validate_categories(proposed_categories)
-
-        self._categories = proposed_categories
-        self._touch()
-
-    def add_photo(self, new_photo: str):
-        self._ensure_active()
-
-        if new_photo in self._photos:
-            raise ValidationError("This photo already exists in this report")
-
-        proposed_photos = self._photos.copy()
-        proposed_photos.append(new_photo)
-        self._validate_photos(proposed_photos)
-
-        self._photos = proposed_photos
-        self._touch()
-
-    def remove_photo(self, photo: str):
-        self._ensure_active()
-
-        if photo not in self._photos:
-            raise ValidationError("This photo does not exist in this report")
-
-        proposed_photos = self._photos.copy()
-        proposed_photos.remove(photo)
-        self._validate_photos(proposed_photos)
-
-        self._photos = proposed_photos
+        self._validate_photos(new_photos)
+        self._photos = new_photos
         self._touch()
 
     def delete(self):
@@ -467,7 +433,6 @@ class FoundReport(Report):
         categories: List[Category],
         photos: List[str],
         location_point: Optional[Point] = None,
-        proof: Optional[Proof] = None,
     ) -> Self:
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
@@ -490,7 +455,6 @@ class FoundReport(Report):
             photos,
             holder,
             location_point=location_point,
-            proof=proof,
         )
 
     @classmethod
@@ -506,7 +470,6 @@ class FoundReport(Report):
         finder_name: str,
         finder_contact: str,
         location_point: Optional[Point] = None,
-        proof: Optional[Proof] = None,
     ) -> Self:
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
@@ -531,7 +494,6 @@ class FoundReport(Report):
             holder,
             handed_over_at=handed_over_at,
             location_point=location_point,
-            proof=proof,
             finder_name=finder_name,
             finder_contact=finder_contact,
         )
@@ -570,6 +532,20 @@ class FoundReport(Report):
         self._ensure_active()
 
         self._found_status = new_found_status
+        self._touch()
+
+    def update_finder_name(self, new_finder_name: str):
+        self._ensure_active()
+
+        self._validate_finder_name(new_finder_name)
+        self._finder_name = new_finder_name
+        self._touch()
+
+    def update_finder_contact(self, new_finder_contact: str):
+        self._ensure_active()
+
+        self._validate_finder_contact(new_finder_contact)
+        self._finder_contact = new_finder_contact
         self._touch()
 
     def confirm_return(self, proof: Proof):
