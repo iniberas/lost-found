@@ -1,428 +1,574 @@
-from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import or_
-from typing import Optional, List
-from uuid import UUID
+import uuid
+from datetime import datetime
+from typing import List, Optional
 
-from app.infrastructure.database.models.report import (
-    LostReportModel,
-    FoundReportModel,
-    CategoryModel,
-    ProofModel
-)
-from app.domain.entities.user import User
 from app.domain.entities.category import Category
+from app.domain.entities.point import Point
 from app.domain.entities.proof import Proof
 from app.domain.entities.report import (
-    LostReport,
     FoundReport,
+    FoundStatus,
+    LostReport,
     ReportStatus,
 )
-from app.domain.interfaces.report import (
-    IProofRepository,
-    ICategoryRepository,
-    ILostReportRepository,
-    IFoundReportRepository,
+from app.domain.entities.user import Admin, User
+from app.domain.interfaces.report import IFoundReportRepository, ILostReportRepository
+from app.infrastructure.database.models.category import CategoryModel
+from app.infrastructure.database.models.report import (
+    FoundReportModel,
+    LostReportModel,
+    report_categories,
 )
+from app.infrastructure.database.models.user import UserRole
+from geoalchemy2.elements import WKTElement
+from geoalchemy2.functions import ST_Distance
+from geoalchemy2.shape import to_shape
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+MATCH_RADIUS_METERS = 10000
 
 
-class SqlAlchemyCategoryRepository(ICategoryRepository):
-    def __init__(self, db: Session):
-        self.db = db
+def _user_from_model(m) -> User:
+    if m.role == UserRole.ADMIN:
+        cls = Admin
+    else:
+        cls = User
 
-    def save(self, category: Category):
-        db_category = CategoryModel(
-            id=category.id,
-            name=category.name
-        )
-        self.db.merge(db_category)
-        self.db.commit()
-
-    def get_categories_by_ids(self, category_ids: List[int]) -> List[Category]:
-        db_categories = (
-            self.db.query(CategoryModel)
-            .filter(CategoryModel.id.in_(category_ids))
-            .all()
-        )
-
-        return [Category(id=row.id, name=row.name) for row in db_categories]
+    return cls(
+        id=m.id,
+        created_at=m.created_at,
+        updated_at=m.updated_at,
+        deleted_at=m.deleted_at,
+        name=m.name,
+        email=m.email,
+        phone_number=m.phone_number,
+        password_hash=m.password_hash,
+    )
 
 
-class SqlAlchemyProofRepository(IProofRepository):
-    def __init__(self, db: Session):
-        self.db = db
-
-    def save(self, proof: Proof) -> None:
-        db_proof = ProofModel(
-            id=proof.id,
-            created_at=proof.created_at,
-            photos=proof.photos,
-            notes=proof.notes
-        )
-        self.db.merge(db_proof)
-        self.db.commit()
+def _categories_from_models(models) -> List[Category]:
+    return [Category(id=c.id, name=c.name, is_active=c.is_active) for c in models]
 
 
-class SqlAlchemyLostReportRepository(ILostReportRepository):
-    def __init__(self, db: Session):
-        self.db = db
+def _point_from_model(m) -> Optional[Point]:
+    if m.location_point is not None:
+        shapely_pt = to_shape(m.location_point)
+        return Point(latitude=shapely_pt.y, longitude=shapely_pt.x)
+    return None
 
-    def save(self, report: LostReport) -> None:
-        db_report = LostReportModel(
-            id=report.id,
-            title=report.title,
-            description=report.description,
-            date=report.date,
-            location_name=report.location_name,
-            latitude=report.latitude,
-            longitude=report.longitude,
-            report_status=report.report_status,
-            photos=report.photos,
-            reporter_id=report.reporter.id,
-            created_at=report.created_at,
-            updated_at=report.updated_at,
-            deleted_at=report.deleted_at,
-        )
 
-        if report.categories:
-            category_ids = [c.id for c in report.categories]
-            db_categories = (
-                self.db.query(CategoryModel)
-                .filter(CategoryModel.id.in_(category_ids))
-                .all()
-            )
-            db_report.categories = db_categories
+def _point_to_geography(point: Optional[Point]) -> Optional[WKTElement]:
+    if point:
+        wkt = f"POINT({point.longitude} {point.latitude})"
+        return WKTElement(wkt, srid=4326)
+    return None
 
-        self.db.merge(db_report)
-        self.db.commit()
 
-    def get_by_id(self, report_id: UUID) -> Optional[LostReport]:
-        row = (
-            self.db.query(LostReportModel)
-            .options(
-                joinedload(LostReportModel.reporter),
-                selectinload(LostReportModel.categories),
-            )
-            .filter(LostReportModel.id == report_id)
-            .first()
-        )
+class LostReportRepository(ILostReportRepository):
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
-        if not row:
-            return None
-        return self._to_domain(row)
-
-    def get_by_status(self, status: ReportStatus) -> List[LostReport]:
-        db_reports = (
-            self.db.query(LostReportModel)
-            .options(
-                joinedload(LostReportModel.reporter),
-                selectinload(LostReportModel.categories),
-            )
-            .filter(
-                LostReportModel.deleted_at.is_(None),
-                LostReportModel.report_status == status,
-            )
-            .all()
-        )
-
-        return [self._to_domain(row) for row in db_reports]
-
-    def get_by_user_id(self, user_id: UUID) -> List[LostReport]:
-        db_reports = (
-            self.db.query(LostReportModel)
-            .options(
-                joinedload(LostReportModel.reporter),
-                selectinload(LostReportModel.categories),
-            )
-            .filter(
-                LostReportModel.deleted_at.is_(None),
-                LostReportModel.reporter_id == user_id,
-            )
-            .all()
-        )
-
-        return [self._to_domain(row) for row in db_reports]
-
-    def get_all(self) -> List[LostReport]:
-        db_reports = (
-            self.db.query(LostReportModel)
-            .options(
-                joinedload(LostReportModel.reporter),
-                selectinload(LostReportModel.categories),
-            )
-            .filter(LostReportModel.deleted_at.is_(None))
-            .all()
-        )
-
-        return [self._to_domain(row) for row in db_reports]
-
-    def search(
-        self, query: str = "", category_id: Optional[int] = None
-    ) -> List[LostReport]:
-        db_query = (
-            self.db.query(LostReportModel)
-            .options(
-                joinedload(LostReportModel.reporter),
-                selectinload(LostReportModel.categories),
-            )
-            .filter(LostReportModel.deleted_at.is_(None))
-        )
-
-        if query:
-            db_query = db_query.filter(
-                or_(
-                    LostReportModel.title.ilike(f"%{query}%"),
-                    LostReportModel.description.ilike(f"%{query}%"),
-                )
-            )
-
-        if category_id:
-            db_query = db_query.filter(
-                LostReportModel.categories.any(CategoryModel.id == category_id)
-            )
-
-        db_reports = db_query.all()
-        return [self._to_domain(row) for row in db_reports]
-
-    def _to_domain(self, row: LostReportModel) -> LostReport:
-        user_entity = User(
-            id=row.reporter.id,
-            created_at=row.reporter.created_at,
-            updated_at=row.reporter.updated_at,
-            name=row.reporter.name,
-            email=row.reporter.email,
-            phone_number=row.reporter.phone_number,
-            password_hash=row.reporter.password_hash,
-        )
-
-        category_entities = [
-            Category(id=cat.id, name=cat.name) for cat in row.categories
-        ]
-
+    def _to_entity(self, m: LostReportModel) -> LostReport:
         return LostReport(
-            id=row.id,
-            created_at=row.created_at,
-            updated_at=row.updated_at,
-            deleted_at=row.deleted_at,
-            reporter=user_entity,
-            report_status=row.report_status,
-            date=row.date,
-            title=row.title,
-            description=row.description,
-            location_name=row.location_name,
-            latitude=row.latitude,
-            longitude=row.longitude,
-            categories=category_entities,
-            photos=row.photos,
+            id=m.id,
+            created_at=m.created_at,
+            updated_at=m.updated_at,
+            reporter=_user_from_model(m.reporter),
+            report_status=ReportStatus(m.report_status),
+            incident_date=m.incident_date,
+            title=m.title,
+            description=m.description,
+            location_name=m.location_name,
+            categories=_categories_from_models(m.categories),
+            deleted_at=m.deleted_at,
+            location_point=_point_from_model(m),
+            photos=list(m.photos or []),
         )
 
-
-class SqlAlchemyFoundReportRepository(IFoundReportRepository):
-    def __init__(self, db: Session):
-        self.db = db
-
-    def save(self, report: FoundReport) -> None:
-        db_report = FoundReportModel(
-            id=report.id,
-            title=report.title,
-            description=report.description,
-            date=report.date,
-            location_name=report.location_name,
-            latitude=report.latitude,
-            longitude=report.longitude,
-            report_status=report.report_status,
-            found_status=report.found_status,
-            photos=report.photos,
-            reporter_id=report.reporter.id,
-            holder_id=report.holder.id,
-            finder_name=report.finder_name,
-            finder_contact=report.finder_contact,
-            created_at=report.created_at,
-            updated_at=report.updated_at,
-            deleted_at=report.deleted_at,
-        )
-
-        if report.categories:
-            category_ids = [c.id for c in report.categories]
-            db_categories = (
-                self.db.query(CategoryModel)
-                .filter(CategoryModel.id.in_(category_ids))
-                .all()
+    async def _sync_categories(self, model, categories: List[Category]):
+        ids = [c.id for c in categories]
+        if ids:
+            result = await self.session.execute(
+                select(CategoryModel).where(CategoryModel.id.in_(ids))
             )
-            db_report.categories = db_categories
+            model.categories = list(result.scalars().all())
+        else:
+            model.categories = []
 
-        self.db.merge(db_report)
-        self.db.commit()
+    async def save(self, report: LostReport) -> None:
+        existing = await self.session.get(
+            LostReportModel,
+            report.id,
+            options=[selectinload(LostReportModel.categories)],
+        )
+        location_geom = _point_to_geography(report.location_point)
 
-    def get_by_id(self, report_id: UUID) -> Optional[FoundReport]:
-        row = (
-            self.db.query(FoundReportModel)
+        if existing:
+            existing.updated_at = report.updated_at
+            existing.deleted_at = report.deleted_at
+            existing.title = report.title
+            existing.description = report.description
+            existing.location_name = report.location_name
+            existing.incident_date = report.incident_date
+            existing.photos = report.photos
+            existing.report_status = report.report_status.value
+            existing.location_point = location_geom
+            await self._sync_categories(existing, report.categories)
+        else:
+            model = LostReportModel(
+                id=report.id,
+                created_at=report.created_at,
+                updated_at=report.updated_at,
+                deleted_at=report.deleted_at,
+                reporter_id=report.reporter.id,
+                title=report.title,
+                description=report.description,
+                location_name=report.location_name,
+                incident_date=report.incident_date,
+                photos=report.photos,
+                report_status=report.report_status.value,
+                location_point=location_geom,
+            )
+            await self._sync_categories(model, report.categories)
+            self.session.add(model)
+            await self.session.flush()
+
+    async def get_by_id(self, report_id: uuid.UUID) -> Optional[LostReport]:
+        stmt = (
+            select(LostReportModel)
             .options(
-                joinedload(FoundReportModel.reporter),
-                joinedload(FoundReportModel.holder),
-                selectinload(FoundReportModel.categories),
+                selectinload(LostReportModel.reporter),
+                selectinload(LostReportModel.categories),
             )
-            .filter(FoundReportModel.id == report_id)
-            .first()
+            .where(LostReportModel.id == report_id)
         )
+        result = await self.session.execute(stmt)
+        m = result.scalar_one_or_none()
+        return self._to_entity(m) if m else None
 
-        if not row:
-            return None
-        return self._to_domain(row)
+    async def search(
+        self,
+        query: Optional[str] = None,
+        user_ids: Optional[List[uuid.UUID]] = None,
+        category_ids: Optional[List[uuid.UUID]] = None,
+        report_status: Optional[List[ReportStatus]] = None,
+        incident_date_from: Optional[datetime] = None,
+        incident_date_to: Optional[datetime] = None,
+        location_point: Optional[Point] = None,
+        location_radius: Optional[float] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[LostReport]:
+        stmt = select(LostReportModel).options(
+            selectinload(LostReportModel.reporter),
+            selectinload(LostReportModel.categories),
+        )
+        stmt = self._apply_filters(
+            stmt,
+            query,
+            user_ids,
+            category_ids,
+            report_status,
+            incident_date_from,
+            incident_date_to,
+            location_point,
+            location_radius,
+        )
+        stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
+        stmt = stmt.limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        return [self._to_entity(m) for m in result.scalars().all()]
 
-    def get_by_status(self, status: ReportStatus) -> List[FoundReport]:
-        db_reports = (
-            self.db.query(FoundReportModel)
+    async def count_search(
+        self,
+        query: Optional[str] = None,
+        user_ids: Optional[List[uuid.UUID]] = None,
+        category_ids: Optional[List[uuid.UUID]] = None,
+        report_status: Optional[List[ReportStatus]] = None,
+        incident_date_from: Optional[datetime] = None,
+        incident_date_to: Optional[datetime] = None,
+        location_point: Optional[Point] = None,
+        location_radius: Optional[float] = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(LostReportModel)
+        stmt = self._apply_filters(
+            stmt,
+            query,
+            user_ids,
+            category_ids,
+            report_status,
+            incident_date_from,
+            incident_date_to,
+            location_point,
+            location_radius,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+
+    async def find_potential_matches(
+        self, found_report: FoundReport, limit: int = 20, offset: int = 0
+    ) -> List[LostReport]:
+        stmt = (
+            select(LostReportModel)
             .options(
-                joinedload(FoundReportModel.reporter),
-                joinedload(FoundReportModel.holder),
-                selectinload(FoundReportModel.categories),
+                selectinload(LostReportModel.reporter),
+                selectinload(LostReportModel.categories),
             )
-            .filter(
-                FoundReportModel.deleted_at.is_(None),
-                FoundReportModel.report_status == status,
+            .where(
+                LostReportModel.report_status == ReportStatus.OPEN.value,
+                LostReportModel.deleted_at.is_(None),
             )
-            .all()
         )
-
-        return [self._to_domain(row) for row in db_reports]
-
-    def get_by_user_id(self, user_id: UUID) -> List[FoundReport]:
-        db_reports = (
-            self.db.query(FoundReportModel)
-            .options(
-                joinedload(FoundReportModel.reporter),
-                joinedload(FoundReportModel.holder),
-                selectinload(FoundReportModel.categories),
+        category_ids = [c.id for c in found_report.categories]
+        if category_ids:
+            stmt = stmt.join(LostReportModel.categories).where(
+                CategoryModel.id.in_(category_ids)
             )
-            .filter(
-                FoundReportModel.deleted_at.is_(None),
-                or_(
-                    FoundReportModel.reporter_id == user_id,
-                    FoundReportModel.holder_id == user_id,
-                ),
+        if found_report.location_point:
+            target_geom = _point_to_geography(found_report.location_point)
+            stmt = stmt.where(
+                ST_Distance(LostReportModel.location_point, target_geom)
+                <= MATCH_RADIUS_METERS
             )
-            .all()
+        stmt = (
+            stmt.order_by(LostReportModel.created_at.desc()).limit(limit).offset(offset)
         )
+        result = await self.session.execute(stmt)
+        return [self._to_entity(m) for m in result.scalars().all()]
 
-        return [self._to_domain(row) for row in db_reports]
-
-    def get_all(self) -> List[FoundReport]:
-        db_reports = (
-            self.db.query(FoundReportModel)
-            .options(
-                joinedload(FoundReportModel.reporter),
-                joinedload(FoundReportModel.holder),
-                selectinload(FoundReportModel.categories),
-            )
-            .filter(FoundReportModel.deleted_at.is_(None))
-            .all()
-        )
-
-        return [self._to_domain(row) for row in db_reports]
-
-    def search(
-        self, query: str = "", category_id: Optional[int] = None
-    ) -> List[FoundReport]:
-        # NOTE: klo sempet tambahin search berdasarkan tanggal + lokasi
-
-        db_query = (
-            self.db.query(FoundReportModel)
-            .options(
-                joinedload(FoundReportModel.reporter),
-                joinedload(FoundReportModel.holder),
-                selectinload(FoundReportModel.categories),
-            )
-            .filter(FoundReportModel.deleted_at.is_(None))
-        )
-
+    def _apply_filters(
+        self,
+        stmt,
+        query,
+        user_ids,
+        category_ids,
+        report_status,
+        incident_date_from,
+        incident_date_to,
+        location_point,
+        location_radius,
+    ):
+        stmt = stmt.where(LostReportModel.deleted_at.is_(None))
         if query:
-            db_query = db_query.filter(
+            like = f"%{query}%"
+            stmt = stmt.where(
                 or_(
-                    FoundReportModel.title.ilike(f"%{query}%"),
-                    FoundReportModel.description.ilike(f"%{query}%"),
+                    LostReportModel.title.ilike(like),
+                    LostReportModel.description.ilike(like),
                 )
             )
+        if user_ids:
+            stmt = stmt.where(LostReportModel.reporter_id.in_(user_ids))
+        if category_ids:
+            from app.infrastructure.database.models.report import report_categories
 
-        if category_id:
-            db_query = db_query.filter(
-                FoundReportModel.categories.any(CategoryModel.id == category_id)
+            stmt = stmt.join(
+                report_categories,
+                report_categories.c.lost_report_id == LostReportModel.id,
+            ).where(report_categories.c.category_id.in_(category_ids))
+        if report_status:
+            stmt = stmt.where(
+                LostReportModel.report_status.in_([s.value for s in report_status])
             )
-
-        db_reports = db_query.all()
-        return [self._to_domain(row) for row in db_reports]
-
-    def find_matches(self, lost_report: LostReport) -> List[FoundReport]:
-        # 1. masih open
-        # 2. ditemuin setelah atau saat hari ilang
-        # 3. ada kategori yang sama
-        # NOTE: mungkin bagusan disort sih trus tambahin lokasi somehow
-
-        db_query = (
-            self.db.query(FoundReportModel)
-            .options(
-                joinedload(FoundReportModel.reporter),
-                joinedload(FoundReportModel.holder),
-                selectinload(FoundReportModel.categories),
+        if incident_date_from:
+            stmt = stmt.where(LostReportModel.incident_date >= incident_date_from)
+        if incident_date_to:
+            stmt = stmt.where(LostReportModel.incident_date <= incident_date_to)
+        if location_point and location_radius:
+            target_geom = _point_to_geography(location_point)
+            stmt = stmt.where(
+                ST_Distance(LostReportModel.location_point, target_geom)
+                <= location_radius
             )
-            .filter(
-                FoundReportModel.deleted_at.is_(None),
-                FoundReportModel.report_status == ReportStatus.OPEN,
-                FoundReportModel.date >= lost_report.date,
+        return stmt
+
+    def _apply_sort(self, stmt, sort_by, sort_order, location_point=None):
+        if sort_by == "distance" and location_point:
+            target_geom = _point_to_geography(location_point)
+            dist_expr = ST_Distance(LostReportModel.location_point, target_geom)
+            return stmt.order_by(
+                dist_expr.asc() if sort_order == "asc" else dist_expr.desc()
             )
-        )
+        col = {
+            "created_at": LostReportModel.created_at,
+            "title": LostReportModel.title,
+        }.get(sort_by, LostReportModel.created_at)
+        return stmt.order_by(col.asc() if sort_order == "asc" else col.desc())
 
-        if lost_report.categories:
-            category_ids = [c.id for c in lost_report.categories]
-            db_query = db_query.filter(
-                FoundReportModel.categories.any(CategoryModel.id.in_(category_ids))
+
+class FoundReportRepository(IFoundReportRepository):
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    def _to_entity(self, m: FoundReportModel) -> FoundReport:
+        proof = None
+        if m.proof:
+            proof = Proof(
+                id=m.proof.id,
+                created_at=m.proof.created_at,
+                photos=list(m.proof.photos or []),
+                notes=m.proof.notes,
             )
-
-        db_reports = db_query.all()
-        return [self._to_domain(row) for row in db_reports]
-
-    def _to_domain(self, row: FoundReportModel) -> FoundReport:
-        reporter_entity = User(
-            id=row.reporter.id,
-            created_at=row.reporter.created_at,
-            updated_at=row.reporter.updated_at,
-            name=row.reporter.name,
-            email=row.reporter.email,
-            phone_number=row.reporter.phone_number,
-            password_hash=row.reporter.password_hash,
-        )
-
-        holder_entity = User(
-            id=row.holder.id,
-            created_at=row.holder.created_at,
-            updated_at=row.holder.updated_at,
-            name=row.holder.name,
-            email=row.holder.email,
-            phone_number=row.holder.phone_number,
-            password_hash=row.holder.password_hash,
-        )
-
-        category_entities = [
-            Category(id=cat.id, name=cat.name) for cat in row.categories
-        ]
-
         return FoundReport(
-            id=row.id,
-            created_at=row.created_at,
-            updated_at=row.updated_at,
-            deleted_at=row.deleted_at,
-            reporter=reporter_entity,
-            holder=holder_entity,
-            report_status=row.report_status,
-            found_status=row.found_status,
-            date=row.date,
-            title=row.title,
-            description=row.description,
-            location_name=row.location_name,
-            latitude=row.latitude,
-            longitude=row.longitude,
-            categories=category_entities,
-            photos=row.photos,
-            finder_name=row.finder_name,
-            finder_contact=row.finder_contact,
-            proof=None,
+            id=m.id,
+            created_at=m.created_at,
+            updated_at=m.updated_at,
+            reporter=_user_from_model(m.reporter),
+            report_status=ReportStatus(m.report_status),
+            found_status=FoundStatus(m.found_status),
+            incident_date=m.incident_date,
+            title=m.title,
+            description=m.description,
+            location_name=m.location_name,
+            categories=_categories_from_models(m.categories),
+            photos=list(m.photos or []),
+            holder=_user_from_model(m.holder),
+            deleted_at=m.deleted_at,
+            handed_over_at=m.handed_over_at,
+            location_point=_point_from_model(m),
+            proof=proof,
+            finder_name=m.finder_name,
+            finder_contact=m.finder_contact,
         )
+
+    async def _sync_categories(self, model, categories: List[Category]):
+        ids = [c.id for c in categories]
+        if ids:
+            result = await self.session.execute(
+                select(CategoryModel).where(CategoryModel.id.in_(ids))
+            )
+            model.categories = list(result.scalars().all())
+        else:
+            model.categories = []
+
+    async def save(self, report: FoundReport) -> None:
+        existing = await self.session.get(
+            FoundReportModel,
+            report.id,
+            options=[selectinload(FoundReportModel.categories)],
+        )
+        location_geom = _point_to_geography(report.location_point)
+
+        if existing:
+            existing.updated_at = report.updated_at
+            existing.deleted_at = report.deleted_at
+            existing.holder_id = report.holder.id
+            existing.title = report.title
+            existing.description = report.description
+            existing.location_name = report.location_name
+            existing.incident_date = report.incident_date
+            existing.photos = report.photos
+            existing.report_status = report.report_status.value
+            existing.found_status = report.found_status.value
+            existing.handed_over_at = report.handed_over_at
+            existing.location_point = location_geom
+            existing.proof_id = report.proof.id if report.proof else None
+            existing.finder_name = report.finder_name
+            existing.finder_contact = report.finder_contact
+            await self._sync_categories(existing, report.categories)
+        else:
+            model = FoundReportModel(
+                id=report.id,
+                created_at=report.created_at,
+                updated_at=report.updated_at,
+                deleted_at=report.deleted_at,
+                reporter_id=report.reporter.id,
+                holder_id=report.holder.id,
+                title=report.title,
+                description=report.description,
+                location_name=report.location_name,
+                incident_date=report.incident_date,
+                photos=report.photos,
+                report_status=report.report_status.value,
+                found_status=report.found_status.value,
+                handed_over_at=report.handed_over_at,
+                location_point=location_geom,
+                proof_id=report.proof.id if report.proof else None,
+                finder_name=report.finder_name,
+                finder_contact=report.finder_contact,
+            )
+            await self._sync_categories(model, report.categories)
+            self.session.add(model)
+            await self.session.flush()
+
+    async def get_by_id(self, report_id: uuid.UUID) -> Optional[FoundReport]:
+        stmt = (
+            select(FoundReportModel)
+            .options(
+                selectinload(FoundReportModel.reporter),
+                selectinload(FoundReportModel.holder),
+                selectinload(FoundReportModel.categories),
+                selectinload(FoundReportModel.proof),
+            )
+            .where(FoundReportModel.id == report_id)
+        )
+        result = await self.session.execute(stmt)
+        m = result.scalar_one_or_none()
+        return self._to_entity(m) if m else None
+
+    async def search(
+        self,
+        query: Optional[str] = None,
+        user_ids: Optional[List[uuid.UUID]] = None,
+        category_ids: Optional[List[uuid.UUID]] = None,
+        report_status: Optional[List[ReportStatus]] = None,
+        incident_date_from: Optional[datetime] = None,
+        incident_date_to: Optional[datetime] = None,
+        location_point: Optional[Point] = None,
+        location_radius: Optional[float] = None,
+        found_status: Optional[FoundStatus] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[FoundReport]:
+        stmt = select(FoundReportModel).options(
+            selectinload(FoundReportModel.reporter),
+            selectinload(FoundReportModel.holder),
+            selectinload(FoundReportModel.categories),
+            selectinload(FoundReportModel.proof),
+        )
+        stmt = self._apply_filters(
+            stmt,
+            query,
+            user_ids,
+            category_ids,
+            report_status,
+            incident_date_from,
+            incident_date_to,
+            location_point,
+            location_radius,
+            found_status,
+        )
+        stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
+        stmt = stmt.limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        return [self._to_entity(m) for m in result.scalars().all()]
+
+    async def count_search(
+        self,
+        query: Optional[str] = None,
+        user_ids: Optional[List[uuid.UUID]] = None,
+        category_ids: Optional[List[uuid.UUID]] = None,
+        report_status: Optional[List[ReportStatus]] = None,
+        incident_date_from: Optional[datetime] = None,
+        incident_date_to: Optional[datetime] = None,
+        location_point: Optional[Point] = None,
+        location_radius: Optional[float] = None,
+        found_status: Optional[FoundStatus] = None,
+    ) -> int:
+        stmt = select(func.count()).select_from(FoundReportModel)
+        stmt = self._apply_filters(
+            stmt,
+            query,
+            user_ids,
+            category_ids,
+            report_status,
+            incident_date_from,
+            incident_date_to,
+            location_point,
+            location_radius,
+            found_status,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+
+    async def find_potential_matches(
+        self, lost_report: LostReport, limit: int = 20, offset: int = 0
+    ) -> List[FoundReport]:
+        stmt = (
+            select(FoundReportModel)
+            .options(
+                selectinload(FoundReportModel.reporter),
+                selectinload(FoundReportModel.holder),
+                selectinload(FoundReportModel.categories),
+                selectinload(FoundReportModel.proof),
+            )
+            .where(
+                FoundReportModel.report_status == ReportStatus.OPEN.value,
+                FoundReportModel.found_status == FoundStatus.HELD_BY_FINDER.value,
+                FoundReportModel.deleted_at.is_(None),
+            )
+        )
+        category_ids = [c.id for c in lost_report.categories]
+        if category_ids:
+            stmt = stmt.join(FoundReportModel.categories).where(
+                CategoryModel.id.in_(category_ids)
+            )
+        if lost_report.location_point:
+            target_geom = _point_to_geography(lost_report.location_point)
+            stmt = stmt.where(
+                ST_Distance(FoundReportModel.location_point, target_geom)
+                <= MATCH_RADIUS_METERS
+            )
+        stmt = (
+            stmt.order_by(FoundReportModel.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.execute(stmt)
+        return [self._to_entity(m) for m in result.scalars().all()]
+
+    def _apply_filters(
+        self,
+        stmt,
+        query,
+        user_ids,
+        category_ids,
+        report_status,
+        incident_date_from,
+        incident_date_to,
+        location_point,
+        location_radius,
+        found_status,
+    ):
+        stmt = stmt.where(FoundReportModel.deleted_at.is_(None))
+        if query:
+            like = f"%{query}%"
+            stmt = stmt.where(
+                or_(
+                    FoundReportModel.title.ilike(like),
+                    FoundReportModel.description.ilike(like),
+                )
+            )
+        if user_ids:
+            stmt = stmt.where(FoundReportModel.reporter_id.in_(user_ids))
+        if category_ids:
+            stmt = stmt.join(
+                report_categories,
+                report_categories.c.found_report_id == FoundReportModel.id,
+            ).where(report_categories.c.category_id.in_(category_ids))
+        if report_status:
+            stmt = stmt.where(
+                FoundReportModel.report_status.in_([s.value for s in report_status])
+            )
+        if found_status:
+            stmt = stmt.where(FoundReportModel.found_status == found_status.value)
+        if incident_date_from:
+            stmt = stmt.where(FoundReportModel.incident_date >= incident_date_from)
+        if incident_date_to:
+            stmt = stmt.where(FoundReportModel.incident_date <= incident_date_to)
+        if location_point and location_radius:
+            target_geom = _point_to_geography(location_point)
+            stmt = stmt.where(
+                ST_Distance(FoundReportModel.location_point, target_geom)
+                <= location_radius
+            )
+        return stmt
+
+    def _apply_sort(self, stmt, sort_by, sort_order, location_point=None):
+        if sort_by == "distance" and location_point:
+            target_geom = _point_to_geography(location_point)
+            dist_expr = ST_Distance(FoundReportModel.location_point, target_geom)
+            return stmt.order_by(
+                dist_expr.asc() if sort_order == "asc" else dist_expr.desc()
+            )
+        col = {
+            "created_at": FoundReportModel.created_at,
+            "title": FoundReportModel.title,
+        }.get(sort_by, FoundReportModel.created_at)
+        return stmt.order_by(col.asc() if sort_order == "asc" else col.desc())
