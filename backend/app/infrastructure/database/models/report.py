@@ -1,95 +1,94 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import List, Optional
-
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, JSON, func, Enum as SQLEnum, Float
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
 
 from app.infrastructure.database.models.base import Base
-from app.domain.entities.report import ReportType, ReportStatus, FoundStatus
+from geoalchemy2 import Geography
+from geoalchemy2.elements import WKBElement
+from sqlalchemy import ARRAY, Column, DateTime, Enum, ForeignKey, String, Table, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import Uuid
 
-# buat relasi Many-to-Many
+
+class ReportType(str, enum.Enum):
+    LOST = "lost"
+    FOUND = "found"
+
+
+class ReportStatus(str, enum.Enum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+
+
+class FoundStatus(str, enum.Enum):
+    HELD_BY_FINDER = "held_by_finder"
+    HELD_BY_ADMIN = "held_by_admin"
+    RETURNED_TO_OWNER = "returned_to_owner"
+
+
 report_categories = Table(
     "report_categories",
     Base.metadata,
-    Column("report_id", UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), primary_key=True),
-    Column("category_id", Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "report_id",
+        Uuid,
+        ForeignKey("reports.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "category_id",
+        Uuid,
+        ForeignKey("categories.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )
-
-
-class CategoryModel(Base):
-    __tablename__ = "categories"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    
-    reports: Mapped[List["ReportModel"]] = relationship(
-        secondary=report_categories, 
-        back_populates="categories"
-    )
-
-
-class ProofModel(Base):
-    __tablename__ = "proofs"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
-
-    report_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("found_reports.id", ondelete="CASCADE"), 
-        unique=True
-    )
-    report: Mapped["FoundReportModel"] = relationship(back_populates="proof")
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    notes: Mapped[str] = mapped_column(Text, nullable=False)
-    
-    photos: Mapped[Optional[list[str]]] = mapped_column(JSON, default=list)
 
 
 class ReportModel(Base):
     __tablename__ = "reports"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
-        primary_key=True, 
-        default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    report_type: Mapped[ReportType] = mapped_column(String(20), index=True)
+
+    reporter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text)
+    location_name: Mapped[str] = mapped_column(String(255))
+    incident_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    photos: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+
+    report_status: Mapped[ReportStatus] = mapped_column(
+        Enum(ReportStatus, name="report_status_enum", create_constraint=True),
+        default=ReportStatus.OPEN,
+        index=True,
     )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    location_point: Mapped[WKBElement | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326)
+    )
 
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
-    date: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-
-    location_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-
-    report_status: Mapped[ReportStatus] = mapped_column(SQLEnum(ReportStatus), default=ReportStatus.OPEN)  
-    report_type: Mapped[ReportType] = mapped_column(SQLEnum(ReportType))
-
-    # Kolom untuk menyimpan list URL foto dalam format JSON
-    photos: Mapped[Optional[list[str]]] = mapped_column(JSON, default=list)
-
-    # Relasi ke User (Many-to-One)
-    reporter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     reporter: Mapped["UserModel"] = relationship(
-        "UserModel",
-        foreign_keys=[reporter_id], 
-        back_populates="reported_items"
+        foreign_keys="[ReportModel.reporter_id]",
+        back_populates="reports",
+        lazy="selectin",
     )
-
-    categories: Mapped[List[CategoryModel]] = relationship(
-        secondary=report_categories, 
-        back_populates="reports"
+    categories: Mapped[list["CategoryModel"]] = relationship(
+        secondary=report_categories,
+        lazy="selectin",
+        back_populates="reports",
     )
 
     __mapper_args__ = {
-        "polymorphic_on": report_type,
+        "polymorphic_on": "report_type",
+        "polymorphic_identity": "report",
     }
 
 
@@ -98,11 +97,11 @@ class LostReportModel(ReportModel):
 
     id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("reports.id", ondelete="CASCADE"),
-        primary_key=True
+        primary_key=True,
     )
-    
+
     __mapper_args__ = {
-        "polymorphic_identity": ReportType.LOST, 
+        "polymorphic_identity": "lost",
     }
 
 
@@ -110,27 +109,28 @@ class FoundReportModel(ReportModel):
     __tablename__ = "found_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("reports.id", ondelete="CASCADE"), 
-        primary_key=True
+        ForeignKey("reports.id", ondelete="CASCADE"),
+        primary_key=True,
     )
 
-    found_status: Mapped[FoundStatus] = mapped_column(SQLEnum(FoundStatus), nullable=False)
+    holder_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
 
-    holder_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    holder: Mapped["UserModel"] = relationship(
-        "UserModel",
-        foreign_keys=[holder_id]
+    found_status: Mapped[FoundStatus | None] = mapped_column(
+        Enum(FoundStatus, name="found_status_enum", create_constraint=True)
     )
 
-    finder_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    finder_contact: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    handed_over_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    proof_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("proofs.id"))
+    finder_name: Mapped[str | None] = mapped_column(String(255))
+    finder_contact: Mapped[str | None] = mapped_column(String(255))
 
-    proof: Mapped[Optional["ProofModel"]] = relationship(
-        back_populates="report",
-        uselist=False, 
-        cascade="all, delete-orphan"
+    holder: Mapped["UserModel | None"] = relationship(
+        foreign_keys="[FoundReportModel.holder_id]",
+        back_populates="holds",
+        lazy="selectin",
     )
+    proof: Mapped["ProofModel | None"] = relationship(lazy="selectin")
 
     __mapper_args__ = {
-        "polymorphic_identity": ReportType.FOUND,
+        "polymorphic_identity": "found",
     }
