@@ -1,95 +1,127 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Literal
+import uuid
 from datetime import datetime
-from uuid import UUID
+from typing import List, Optional
 
-from app.domain.entities.report import ReportStatus, FoundStatus, ReportType
+from app.domain.entities.report import (
+    FoundStatus,
+    ReportStatus,
+    ReportType,
+)
+from app.schemas.category import CategoryResponse
+from app.schemas.user import UserResponse
+from pydantic import BaseModel, ConfigDict
 
 
-class CategorySchema(BaseModel):
-    id: int
-    name: str
-    
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserSummary(BaseModel):
-    id: UUID
-    name: str
+class PointSchema(BaseModel):
+    latitude: float
+    longitude: float
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ProofResponse(BaseModel):
-    id: UUID 
+    id: uuid.UUID
     created_at: datetime
-    notes: str
     photos: List[str]
+    notes: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class ReportRequestBase(BaseModel):
-    title: str
-    description: str
-    date: datetime
-    location_name: str
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    category_ids: List[int] = Field(..., min_length=1)
-
-
-class LostReportRequest(ReportRequestBase):
-    pass
-
-
-class FoundReportRequest(ReportRequestBase):
-    pass
-
-
-class HandoverReportRequest(ReportRequestBase):
-    finder_name: str 
-    finder_contact: str
-
-
-class UpdateReportRequest(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-
-class ReportResponse(BaseModel):
-    id: UUID
-    created_at: datetime 
+class LostReportResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
     updated_at: datetime
+    deleted_at: Optional[datetime]
+    reporter: UserResponse
+    report_status: ReportStatus
+    report_type: ReportType
+    incident_date: datetime
     title: str
     description: str
-    date: datetime
-    location_name: str 
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    
-    report_status: ReportStatus 
-    
+    location_name: str
+    categories: List[CategoryResponse]
     photos: List[str]
-    categories: List[CategorySchema]
-    reporter: UserSummary 
-    
-    model_config = ConfigDict(from_attributes=True) 
+    location_point: Optional[PointSchema] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
-class LostReportResponse(ReportResponse):
-    report_type: Literal[ReportType.LOST] = ReportType.LOST
-
-
-class FoundReportResponse(ReportResponse):
-    report_type: Literal[ReportType.FOUND] = ReportType.FOUND
+class FoundReportResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime]
+    reporter: UserResponse
+    holder: UserResponse
+    report_status: ReportStatus
+    report_type: ReportType
     found_status: FoundStatus
-    holder: UserSummary 
+    incident_date: datetime
+    title: str
+    description: str
+    location_name: str
+    categories: List[CategoryResponse]
+    photos: List[str]
+    location_point: Optional[PointSchema] = None
+    handed_over_at: Optional[datetime] = None
+    proof: Optional[ProofResponse] = None
     finder_name: Optional[str] = None
     finder_contact: Optional[str] = None
-    proof: Optional[ProofResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
-class MyReportsResponse(BaseModel):
-    lost: List[LostReportResponse]
-    found: List[FoundReportResponse]
+class CreateLostReportRequest(BaseModel):
+    title: str
+    description: str
+    location_name: str
+    incident_date: datetime
+    category_ids: List[uuid.UUID]
+    location_point: Optional[PointSchema] = None
+
+
+class CreateFoundReportRequest(BaseModel):
+    title: str
+    description: str
+    location_name: str
+    incident_date: datetime
+    category_ids: List[uuid.UUID]
+    location_point: Optional[PointSchema] = None
+
+
+class CreateHandOverReportRequest(BaseModel):
+    title: str
+    description: str
+    location_name: str
+    incident_date: datetime
+    category_ids: List[uuid.UUID]
+    finder_name: str
+    finder_contact: str
+    location_point: Optional[PointSchema] = None
+
+
+class UpdateLostReportRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    incident_date: Optional[datetime] = None
+    location_name: Optional[str] = None
+    location_point: Optional[PointSchema] = None
+    category_ids: Optional[List[uuid.UUID]] = None
+    photos_to_remove: Optional[List[str]] = None
+
+
+class UpdateFoundReportRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    incident_date: Optional[datetime] = None
+    location_name: Optional[str] = None
+    location_point: Optional[PointSchema] = None
+    category_ids: Optional[List[uuid.UUID]] = None
+    photos_to_remove: Optional[List[str]] = None
+    finder_name: Optional[str] = None
+    finder_contact: Optional[str] = None
+
+
+class ResolveFoundReportRequest(BaseModel):
+    notes: str
