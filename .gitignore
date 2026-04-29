@@ -21,6 +21,7 @@ dist/
 .coverage
 
 backend/static/images
+backend/uploads
 
 # ==========================
 # FRONTEND
