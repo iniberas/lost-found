@@ -1,49 +1,72 @@
 import os
-import pytest
-from dotenv import load_dotenv
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from uuid import uuid4
-from datetime import datetime
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from app.main import app 
-from app.api.dependencies import get_db, get_current_user, get_current_admin_user
-from app.domain.entities.user import User, Admin
+import pytest
+import pytest_asyncio
+from app.core.dependencies import get_current_admin, get_current_user
+from app.domain.entities.user import Admin, User
 from app.infrastructure.database.models.base import Base
-
+from app.infrastructure.database.session import get_session
+from app.main import app
+from dotenv import load_dotenv
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 load_dotenv()
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
 
-engine = create_engine(TEST_DATABASE_URL)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+@pytest_asyncio.fixture(scope="function")
+async def async_engine():
+    engine = create_async_engine(TEST_DATABASE_URL)
+
+    # Setup tabel sebelum test
+    async with engine.begin() as conn:
+        # AKTIFKAN EKSTENSI POSTGIS SEBELUM BIKIN TABEL
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield engine
+
+    # Teardown tabel setelah test
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+    # Memastikan connection pool dihancurkan supaya tidak bocor ke test berikutnya
+    await engine.dispose()
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
-    
-    try:
+@pytest_asyncio.fixture(scope="function")
+async def db_session(async_engine):
+    TestingSessionLocal = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    async with TestingSessionLocal() as session:
         yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+        # Aman untuk berjaga-jaga jika ada transaksi yang lupa di-commit/rollback di test
+        await session.rollback()
 
 
 @pytest.fixture
 def dummy_user():
     return User(
         id=uuid4(),
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         name="Test User",
         email="test@apps.ipb.ac.id",
-        phone_number="08123456789",
-        password_hash="fake_hashed_password_123"
+        phone_number="+6281234567890",
+        password_hash="fake_hashed_password_123",
     )
 
 
@@ -51,70 +74,121 @@ def dummy_user():
 def dummy_admin():
     return Admin(
         id=uuid4(),
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         name="Admin User",
         email="admin@ipb.ac.id",
-        phone_number="08987654321",
-        password_hash="fake_admin_hash_123"
+        phone_number="+6289876543210",
+        password_hash="fake_admin_hash_123",
     )
 
 
 @pytest.fixture(scope="function")
-def client(db_session, dummy_user):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass 
+def client(dummy_user, async_engine):
+    TestingSessionLocal = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
 
-    def override_get_current_user():
+    async def override_get_session():
+        async with TestingSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def override_get_current_user():
         return dummy_user
 
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_current_user
-    
+
+    @asynccontextmanager
+    async def mock_lifespan(app):
+        yield
+
+    app.router.lifespan_context = mock_lifespan
+
     with TestClient(app) as test_client:
         yield test_client
-        
+
     app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
-def admin_client(db_session, dummy_admin):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
+def admin_client(dummy_admin, async_engine):
+    TestingSessionLocal = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
 
-    def override_get_current_user():
-        return dummy_admin
-        
-    def override_get_current_admin_user():
+    async def override_get_session():
+        async with TestingSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def override_get_current_user():
         return dummy_admin
 
-    app.dependency_overrides[get_db] = override_get_db
+    async def override_get_current_admin():
+        return dummy_admin
+
+    app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_current_user
-    app.dependency_overrides[get_current_admin_user] = override_get_current_admin_user
-    
+    app.dependency_overrides[get_current_admin] = override_get_current_admin
+
+    @asynccontextmanager
+    async def mock_lifespan(app):
+        yield
+
+    app.router.lifespan_context = mock_lifespan
+
     with TestClient(app) as test_client:
         yield test_client
-        
+
     app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
-def unauthenticated_client(db_session):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
+def unauthenticated_client(async_engine):
+    TestingSessionLocal = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
 
-    app.dependency_overrides[get_db] = override_get_db
-    
+    async def override_get_session():
+        async with TestingSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    app.dependency_overrides[get_session] = override_get_session
+
+    @asynccontextmanager
+    async def mock_lifespan(app):
+        yield
+
+    app.router.lifespan_context = mock_lifespan
+
     with TestClient(app) as test_client:
         yield test_client
-        
+
     app.dependency_overrides.clear()

@@ -135,6 +135,24 @@ def test_create_user_fails_with_naive_datetime(field, expected_error):
         User(**attributes)
 
 
+def test_create_user_fails_with_naive_deleted_at():
+    attributes = {
+        "id": uuid4(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+        "name": "Budi",
+        "email": "budi@apps.ipb.ac.id",
+        "phone_number": "+6281234567890",
+        "password_hash": "hashed_secret",
+        "deleted_at": datetime(2024, 1, 1),  # naive
+    }
+    with pytest.raises(
+        (ValidationError, ValueError),
+        match="Deleted at must include timezone information",
+    ):
+        User(**attributes)
+
+
 def test_new_user_assigns_uuid_and_timestamps():
     user = User.new_user(
         name="Budi",
@@ -177,6 +195,18 @@ def test_update_user_modifies_field_and_updates_timestamp(field, valid_data):
     update_method(valid_data)
 
     assert user.updated_at > past_time
+
+
+def test_update_email_is_lowercased_and_stripped():
+    user = make_user(email="old@x.com")
+    user.update_email("  NEW@EXAMPLE.COM  ")
+    assert user.email == "new@example.com"
+
+
+def test_update_name_is_stripped():
+    user = make_user(name="Old Name")
+    user.update_name("  New Name  ")
+    assert user.name == "New Name"
 
 
 @pytest.mark.parametrize(
@@ -318,3 +348,21 @@ def test_admin_is_instance_of_user():
     )
     assert isinstance(admin, User)
     assert isinstance(admin, Admin)
+
+
+def test_new_admin_assigns_uuid_and_timestamps():
+    admin = Admin.new_admin(
+        name="Admin",
+        email="admin@example.com",
+        phone_number="+6281234567891",
+        password_hash="hashed_secret",
+    )
+
+    assert isinstance(admin.id, __import__("uuid").UUID)
+    assert isinstance(admin, Admin)
+    assert isinstance(admin, User)
+    assert admin.created_at.tzinfo is not None
+    assert admin.updated_at == admin.created_at
+    assert admin.name == "Admin"
+    assert admin.email == "admin@example.com"
+    assert admin.phone_number == "+6281234567891"

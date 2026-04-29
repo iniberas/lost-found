@@ -53,6 +53,12 @@ def test_create_proof_fails_with_invalid_notes(
         Proof(**valid_proof_kwargs)
 
 
+def test_create_proof_fails_with_none_notes(valid_proof_kwargs):
+    valid_proof_kwargs["notes"] = None
+    with pytest.raises(ValidationError, match="Notes cannot be empty"):
+        Proof(**valid_proof_kwargs)
+
+
 @pytest.mark.parametrize(
     "photos, expected_error",
     [

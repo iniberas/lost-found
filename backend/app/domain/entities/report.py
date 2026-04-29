@@ -471,6 +471,11 @@ class FoundReport(Report):
         finder_contact: str,
         location_point: Optional[Point] = None,
     ) -> Self:
+        if finder_name is None or finder_contact is None:
+            raise ValidationError(
+                "Finder name and contact are required for hand over reports"
+            )
+
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at

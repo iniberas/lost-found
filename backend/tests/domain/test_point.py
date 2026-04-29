@@ -56,3 +56,33 @@ def test_point_properties_are_accessible():
     p = Point(latitude=-6.2, longitude=106.816)
     assert p.latitude == -6.2
     assert p.longitude == 106.816
+
+
+def test_point_equality_same_coordinates():
+    p1 = Point(latitude=-6.2, longitude=106.816)
+    p2 = Point(latitude=-6.2, longitude=106.816)
+    assert p1 == p2
+
+
+def test_point_inequality_different_coordinates():
+    p1 = Point(latitude=-6.2, longitude=106.816)
+    p2 = Point(latitude=-6.2, longitude=106.817)
+    p3 = Point(latitude=-6.1, longitude=106.816)
+    assert p1 != p2
+    assert p1 != p3
+
+
+def test_point_not_equal_to_non_point():
+    p = Point(latitude=-6.2, longitude=106.816)
+    assert p != "Point"
+    assert p is not None
+
+
+def test_point_repr():
+    p = Point(latitude=-6.2, longitude=106.816)
+    assert repr(p) == "Point(latitude=-6.2, longitude=106.816)"
+
+
+def test_point_wkt_property():
+    p = Point(latitude=-6.2, longitude=106.816)
+    assert p.wkt == "POINT(106.816 -6.2)"
