@@ -76,7 +76,7 @@ async def test_search_categories_success(mock_category_repo, dummy_category):
 
     assert len(results) == 1
     assert results[0].name == "Electronics"
-    mock_category_repo.search.assert_called_once_with(query="Electro")
+    mock_category_repo.search.assert_called_once_with(query="Electro", is_active=None)
 
 
 @pytest.mark.asyncio

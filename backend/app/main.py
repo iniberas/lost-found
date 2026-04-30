@@ -4,17 +4,12 @@ from contextlib import asynccontextmanager
 from app.api.v1 import router as api_router
 from app.core.config import settings
 from app.domain.exceptions import StateTransitionError, ValidationError
-from app.infrastructure.database.models.base import Base
-# setup alembic pls :')
-from app.infrastructure.database.models.category import CategoryModel
-from app.infrastructure.database.models.proof import ProofModel
-from app.infrastructure.database.models.report import FoundReportModel, LostReportModel, ReportModel
-from app.infrastructure.database.models.user import UserModel
 from app.infrastructure.database.session import engine
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 
 @asynccontextmanager
@@ -24,7 +19,8 @@ async def lifespan(app: FastAPI):
     for attempt in range(max_retries):
         try:
             async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+                await conn.execute(text("SELECT 1"))
+                # await conn.run_sync(Base.metadata.create_all)
             print("Successfully connected to the database and created tables!")
             break
         except Exception as e:

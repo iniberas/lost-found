@@ -20,30 +20,36 @@ load_dotenv()
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
 
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_database_schema():
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+
+    yield
+
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
 @pytest_asyncio.fixture(scope="function")
 async def async_engine():
     engine = create_async_engine(TEST_DATABASE_URL)
-
-    # Setup tabel sebelum test
-    async with engine.begin() as conn:
-        # AKTIFKAN EKSTENSI POSTGIS SEBELUM BIKIN TABEL
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-
     yield engine
-
-    # Teardown tabel setelah test
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-    # Memastikan connection pool dihancurkan supaya tidak bocor ke test berikutnya
     await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session(async_engine):
+    async with async_engine.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
+
     TestingSessionLocal = async_sessionmaker(
         async_engine,
         class_=AsyncSession,
@@ -51,9 +57,9 @@ async def db_session(async_engine):
         autocommit=False,
         autoflush=False,
     )
+
     async with TestingSessionLocal() as session:
         yield session
-        # Aman untuk berjaga-jaga jika ada transaksi yang lupa di-commit/rollback di test
         await session.rollback()
 
 
