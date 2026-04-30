@@ -106,7 +106,6 @@ export default function CreateReportPage({ user, handleLogout }) {
                 <label className="block text-sm font-medium text-gray-900 mb-2">Upload Foto</label>
                 <div className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-gray-50/50 min-h-[140px]">
                   
-                  {/* Input asli disembunyikan */}
                   <input 
                     type="file" 
                     accept="image/*" 

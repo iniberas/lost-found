@@ -1,12 +1,54 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, LogOut, User as UserIcon, PackageOpen } from 'lucide-react';
+import { Search, Filter, PackageOpen, Calendar, MapPin } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
+// INI DATA DUMMY BUAT GUA NGETEST REPORT CARD DAN LAIN LAIN YAK, GUA JADIIN COMMENT AJAH< BUAT DI PAKE LAGI SOALNYA (FARID)
+/*const dummyReports = [
+  {
+    id: 1,
+    title: "Laptop Asus ROG Zephyrus",
+    description: "Hilang di GWW. Warna abu-abu gelap, ada stiker Himalkom di pojok kanan bawah. Sangat penting untuk nugas.",
+    photos: ["https://images.unsplash.com/photo-1598327105666-5b89351cb315?q=80&w=600&auto=format&fit=crop"]
+  },
+  {
+    id: 2,
+    title: "Dompet Kulit Coklat",
+    description: "Ditemukan di parkiran motor FMIPA. Berisi KTM, KTP, dan beberapa kartu penting. Aman di tangan saya.",
+    photos: ["https://images.unsplash.com/photo-1627123424574-724758594e93?q=80&w=600&auto=format&fit=crop"]
+  },
+  {
+    id: 3,
+    title: "Kunci Motor Honda",
+    description: "Ada gantungan kunci boneka beruang. Hilang sekitar jalan dari kosan menuju Fakultas.",
+    photos: ["https://images.unsplash.com/photo-1582139329536-e7284fece509?q=80&w=600&auto=format&fit=crop"]
+  },
+  {
+    id: 4,
+    title: "Botol Minum Corkcicle",
+    description: "Warna biru laut. Tertinggal di kelas saat mata kuliah pagi. Masih ada sisa air dinginnya sedikit.",
+    photos: ["https://images.unsplash.com/photo-1602143407151-7111542de6e8?q=80&w=600&auto=format&fit=crop"]
+  },
+  {
+    id: 5,
+    title: "TWS Sony WF-1000XM4",
+    description: "Ditemukan di selasar perpustakaan. Casing warna hitam, ada sedikit lecet di bagian atas.",
+    photos: ["https://images.unsplash.com/photo-1590658268037-6bf12165a8df?q=80&w=600&auto=format&fit=crop"]
+  },
+  {
+    id: 6,
+    title: "Jaket Varsity",
+    description: "Tertinggal di depan sekre. Ukuran L, warna dasar biru navy dengan garis putih di lengan.",
+    photos: ["https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop"]
+  }
+];*/
 
 // REPORT CARD
-const ReportCard = ({ item }) => (
-  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex flex-col h-full font-poppins">
+const ReportCard = ({ item, onClick }) => (
+  <div 
+    className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex flex-col h-full font-poppins cursor-pointer"
+    onClick={onClick}
+  >
     <div className="relative h-48 bg-gray-200">
       {item.photos && item.photos.length > 0 ? (
         <img src={item.photos[0]} alt={item.title} className="w-full h-full object-cover" />
@@ -34,7 +76,6 @@ export default function HomePage({ user, handleLogout }) {
   const [activeTab, setActiveTab] = useState('lost');
   const [searchQuery, setSearchQuery] = useState("");
   
-
   const [items, setItems] = useState([]); 
 
   return (
@@ -42,7 +83,7 @@ export default function HomePage({ user, handleLogout }) {
       <Navbar user={user} handleLogout={handleLogout} />
 
       {/* HERO SECTION */}
-      <section className="bg-auth-pattern bg-repeat py-58 md:py-66 px-8 md:px-16 flex flex-col items-start text-left space-y-8 shadow-sm z-10 relative">
+      <section className="bg-auth-pattern bg-repeat py-50 md:py-64 px-8 md:px-16 flex flex-col items-start text-left space-y-8 shadow-sm z-10 relative">
         <div className="w-full space-y-2">
           <h2 className="text-[48px] md:text-[62px] font-black text-[#0C0B89] leading-tight drop-shadow-md">
             {user ? `Halo, ${user.name}!` : "IPB Lost & Found"}
@@ -88,7 +129,7 @@ export default function HomePage({ user, handleLogout }) {
               </button>
             </div>
 
-            {/* Render List Laporan atau pesan blum ada laporan*/}
+            {/* Render List Laporan atau pesan blum ada laporan */}
             {items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
                 <PackageOpen size={64} strokeWidth={1.5} className="text-gray-300 mb-4" />
@@ -100,7 +141,11 @@ export default function HomePage({ user, handleLogout }) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {items.map(item => (
-                  <ReportCard key={item.id} item={item} />
+                  <ReportCard 
+                    key={item.id} 
+                    item={item} 
+                    onClick={() => navigate(`/report/${item.id}`)} 
+                  />
                 ))}
               </div>
             )}
@@ -113,6 +158,7 @@ export default function HomePage({ user, handleLogout }) {
                 <span>Filter Laporan</span>
               </div>
 
+              {/* Filter Cari Barang */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Cari Barang</label>
                 <div className="relative">
@@ -127,6 +173,31 @@ export default function HomePage({ user, handleLogout }) {
                 </div>
               </div>
 
+              {/* Filter Tanggal */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Waktu Kejadian</label>
+                <div className="relative">
+                  <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="date" 
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#0C0B89]/20 transition-all text-gray-600"
+                  />
+                </div>
+              </div>
+
+              {/* Filter Lokasi Maps */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Area Lokasi</label>
+                <div className="relative">
+                  <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <button className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm text-left text-gray-500 hover:bg-gray-100 transition-all flex justify-between items-center group">
+                    Pilih Titik Peta
+                    <span className="text-[10px] font-bold bg-[#0C0B89] text-white px-2 py-1 rounded-lg opacity-80 group-hover:opacity-100 transition-opacity">Maps</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Kategori */}
               <div className="space-y-4">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Kategori</label>
                 <div className="space-y-3">

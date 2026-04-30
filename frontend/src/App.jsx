@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ReportDetailPage from './pages/ReportDetailPage';
+import UpdateReportPage from './pages/UpdateReportPage';
 
 // pages
 import AuthPage from './pages/AuthPage';
@@ -7,7 +9,7 @@ import HomePage from './pages/HomePage';
 import CreateReportPage from './pages/CreateReportPage';
 
 function AppContent() {
-  const [user, setUser] = useState();
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const API_URL = 'http://127.0.0.1:8000'; 
@@ -70,6 +72,16 @@ function AppContent() {
       <Route 
         path="/lapor-temuan" 
         element={<CreateReportPage user={user} handleLogout={handleLogout} />} 
+      />
+
+      <Route 
+       path="/report/:id" 
+       element={<ReportDetailPage user={user} handleLogout={handleLogout} />} 
+      />
+
+      <Route 
+        path="/update-report/:id" 
+        element={<UpdateReportPage user={user} handleLogout={handleLogout} />} 
       />
     </Routes>
   )
