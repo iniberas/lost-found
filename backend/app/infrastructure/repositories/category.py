@@ -50,8 +50,12 @@ class CategoryRepository(ICategoryRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def search(self, query: Optional[str] = None) -> List[Category]:
-        stmt = select(CategoryModel).where(CategoryModel.is_active.is_(True))
+    async def search(
+        self, query: Optional[str] = None, is_active: Optional[bool] = None
+    ) -> List[Category]:
+        stmt = select(CategoryModel)
+        if is_active is not None:
+            stmt = stmt.where(CategoryModel.is_active.is_(is_active))
         if query:
             stmt = stmt.where(CategoryModel.name.ilike(f"%{query}%"))
         stmt = stmt.order_by(CategoryModel.name)

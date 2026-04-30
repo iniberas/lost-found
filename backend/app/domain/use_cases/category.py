@@ -34,8 +34,8 @@ class SearchCategoriesUseCase:
     def __init__(self, category_repo: ICategoryRepository):
         self.category_repo = category_repo
 
-    async def execute(self, query: Optional[str] = None) -> List[Category]:
-        return await self.category_repo.search(query=query)
+    async def execute(self, query: Optional[str] = None, is_active: Optional[bool] = None) -> List[Category]:
+        return await self.category_repo.search(query=query, is_active=is_active)
 
 
 class DeleteCategoryUseCase:

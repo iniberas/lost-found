@@ -17,13 +17,13 @@ class ICategoryRepository(ABC):
     @abstractmethod
     def get_by_ids(self, category_ids: List[uuid.UUID]) -> List[Category]:
         pass
-    
+
     @abstractmethod
     def get_by_name(self, name) -> Optional[Category]:
         pass
 
     @abstractmethod
-    def search(self, query: Optional[str]) -> List[Category]:
+    def search(self, query: Optional[str], is_active: Optional[bool]) -> List[Category]:
         pass
 
     @abstractmethod

@@ -45,7 +45,7 @@ class CreateLostReportUseCase:
         categories = await self.category_repo.get_by_ids(category_ids)
 
         photos = (
-            await self.storage_service.save_files(photo_files) if photo_files else []
+            self.storage_service.save_files(photo_files) if photo_files else []
         )
 
         report = LostReport.new_lost_report(
@@ -86,7 +86,7 @@ class CreateFoundReportUseCase:
     ) -> FoundReport:
         categories = await self.category_repo.get_by_ids(category_ids)
 
-        photos = await self.storage_service.save_files(photo_files)
+        photos = self.storage_service.save_files(photo_files)
 
         report = FoundReport.new_found_report(
             reporter=reporter,
@@ -128,7 +128,7 @@ class CreateHandOverReportUseCase:
     ) -> FoundReport:
         categories = await self.category_repo.get_by_ids(category_ids)
 
-        photos = await self.storage_service.save_files(photo_files)
+        photos = self.storage_service.save_files(photo_files)
 
         report = FoundReport.new_hand_over_report(
             reporter=reporter,
@@ -325,7 +325,7 @@ class UpdateLostReportUseCase:
         saved_new_photos: List[str] = []
         try:
             if photos_to_add:
-                saved_new_photos = await self.storage_service.save_files(photos_to_add)
+                saved_new_photos = self.storage_service.save_files(photos_to_add)
                 final_photos.extend(saved_new_photos)
             if photos_to_remove:
                 final_photos = [p for p in final_photos if p not in photos_to_remove]
@@ -334,7 +334,7 @@ class UpdateLostReportUseCase:
         except Exception as e:
             for photo in saved_new_photos:
                 try:
-                    await self.storage_service.delete_file(photo)
+                    self.storage_service.delete_file(photo)
                 except Exception:
                     pass
             raise e
@@ -342,7 +342,7 @@ class UpdateLostReportUseCase:
         if photos_to_remove:
             for path in photos_to_remove:
                 try:
-                    await self.storage_service.delete_file(path)
+                    self.storage_servicedelete_file(path)
                 except Exception:
                     pass
 
@@ -403,7 +403,7 @@ class UpdateFoundReportUseCase:
         saved_new_photos: List[str] = []
         try:
             if photos_to_add:
-                saved_new_photos = await self.storage_service.save_files(photos_to_add)
+                saved_new_photos = self.storage_service.save_files(photos_to_add)
                 final_photos.extend(saved_new_photos)
             if photos_to_remove:
                 final_photos = [p for p in final_photos if p not in photos_to_remove]
@@ -412,7 +412,7 @@ class UpdateFoundReportUseCase:
         except Exception as e:
             for photo in saved_new_photos:
                 try:
-                    await self.storage_service.delete_file(photo)
+                    self.storage_service.delete_file(photo)
                 except Exception:
                     pass
             raise e
@@ -420,7 +420,7 @@ class UpdateFoundReportUseCase:
         if photos_to_remove:
             for path in photos_to_remove:
                 try:
-                    await self.storage_service.delete_file(path)
+                    self.storage_servicedelete_file(path)
                 except Exception:
                     pass
 
@@ -468,7 +468,7 @@ class ResolveFoundReportUseCase:
 
         photos: List[str] = []
         try:
-            photos = await self.storage_service.save_files(photo_files)
+            photos = self.storage_service.save_files(photo_files)
             proof = Proof.new_proof(photos=photos, notes=notes)
             report.confirm_return(proof)
             await self.proof_repo.save(proof)
@@ -476,7 +476,7 @@ class ResolveFoundReportUseCase:
         except Exception as e:
             for photo in photos:
                 try:
-                    await self.storage_service.delete_file(photo)
+                    self.storage_service.delete_file(photo)
                 except Exception:
                     pass
             raise e

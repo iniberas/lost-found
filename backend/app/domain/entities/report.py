@@ -333,10 +333,15 @@ class LostReport(Report):
         location_point: Optional[Point] = None,
         photos: Optional[List[str]] = None,
     ) -> Self:
+        has_inactive = any(not cat.is_active for cat in categories)
+        if has_inactive:
+            raise ValidationError("One or more assigned categories were not found")
+
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at
         report_status = ReportStatus.OPEN
+
         return cls(
             id,
             created_at,
@@ -434,12 +439,17 @@ class FoundReport(Report):
         photos: List[str],
         location_point: Optional[Point] = None,
     ) -> Self:
+        has_inactive = any(not cat.is_active for cat in categories)
+        if has_inactive:
+            raise ValidationError("One or more assigned categories were not found")
+
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at
         report_status = ReportStatus.OPEN
         found_status = FoundStatus.HELD_BY_FINDER
         holder = reporter
+
         return cls(
             id,
             created_at,
@@ -476,6 +486,10 @@ class FoundReport(Report):
                 "Finder name and contact are required for hand over reports"
             )
 
+        has_inactive = any(not cat.is_active for cat in categories)
+        if has_inactive:
+            raise ValidationError("One or more assigned categories were not found")
+
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
         updated_at = created_at
@@ -483,6 +497,7 @@ class FoundReport(Report):
         report_status = ReportStatus.OPEN
         found_status = FoundStatus.HELD_BY_ADMIN
         holder = reporter
+
         return cls(
             id,
             created_at,
