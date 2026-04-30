@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-
+from sqlalchemy import text
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,7 +24,8 @@ async def lifespan(app: FastAPI):
     for attempt in range(max_retries):
         try:
             async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+                await conn.execute(text("SELECT 1"))
+                # await conn.run_sync(Base.metadata.create_all)
             print("Successfully connected to the database and created tables!")
             break
         except Exception as e:
