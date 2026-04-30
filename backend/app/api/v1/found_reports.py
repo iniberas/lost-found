@@ -5,9 +5,6 @@ from typing import List, Optional
 from app.core.dependencies import (
     get_create_found_report_form,
     get_create_found_report_use_case,
-    get_create_hand_over_report_form,
-    get_create_hand_over_report_use_case,
-    get_current_admin,
     get_current_user,
     get_delete_found_report_use_case,
     get_found_report_by_id_use_case,
@@ -21,11 +18,10 @@ from app.core.dependencies import (
 )
 from app.domain.entities.point import Point
 from app.domain.entities.report import FoundStatus, ReportStatus
-from app.domain.entities.user import Admin, User
+from app.domain.entities.user import User
 from app.domain.exceptions import FutureDateError, StateTransitionError, ValidationError
 from app.domain.use_cases.report import (
     CreateFoundReportUseCase,
-    CreateHandOverReportUseCase,
     DeleteFoundReportUseCase,
     FindPotentialLostReportsUseCase,
     GetFoundReportByIdUseCase,
@@ -37,7 +33,6 @@ from app.domain.use_cases.report import (
 from app.schemas.pagination import Paginated
 from app.schemas.report import (
     CreateFoundReportRequest,
-    CreateHandOverReportRequest,
     FoundReportResponse,
     LostReportResponse,
     ResolveFoundReportRequest,
@@ -142,53 +137,6 @@ async def create_found_report(
             description=body.description,
             location_name=body.location_name,
             category_ids=body.category_ids,
-            location_point=location_point,
-            photo_files=photo_files,
-        )
-        return FoundReportResponse.model_validate(report)
-    except (ValidationError, FutureDateError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
-        )
-
-
-@router.post(
-    "/handover", response_model=FoundReportResponse, status_code=status.HTTP_201_CREATED
-)
-async def create_hand_over_report(
-    body: CreateHandOverReportRequest = Depends(get_create_hand_over_report_form),
-    photos: List[UploadFile] = File(...),
-    admin: Admin = Depends(get_current_admin),
-    use_case: CreateHandOverReportUseCase = Depends(
-        get_create_hand_over_report_use_case
-    ),
-):
-    photo_files = None
-    if photos:
-        photo_files = []
-        for photo in photos:
-            file_bytes = await photo.read()
-            if file_bytes:
-                photo_files.append((file_bytes, photo.filename))
-
-    location_point = (
-        Point(
-            latitude=body.location_point.latitude,
-            longitude=body.location_point.longitude,
-        )
-        if body.location_point
-        else None
-    )
-    try:
-        report = await use_case.execute(
-            reporter=admin,
-            incident_date=body.incident_date,
-            title=body.title,
-            description=body.description,
-            location_name=body.location_name,
-            category_ids=body.category_ids,
-            finder_name=body.finder_name,
-            finder_contact=body.finder_contact,
             location_point=location_point,
             photo_files=photo_files,
         )
