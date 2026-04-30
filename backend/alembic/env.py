@@ -1,20 +1,15 @@
+import asyncio
 import os
 import sys
-import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
-
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 from app.infrastructure.database.models.base import Base
-from app.infrastructure.database.models.user import UserModel
-from app.infrastructure.database.models.category import CategoryModel
-from app.infrastructure.database.models.report import ReportModel, FoundReportModel, LostReportModel
-from app.infrastructure.database.models.proof import ProofModel
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -62,11 +57,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection, **kwargs) -> None:
-    context.configure(
-            connection=connection, 
-            target_metadata=target_metadata,
-            **kwargs
-        )
+    context.configure(connection=connection, target_metadata=target_metadata, **kwargs)
 
     with context.begin_transaction():
         context.run_migrations()
@@ -89,26 +80,45 @@ def do_run_migrations(connection: Connection, **kwargs) -> None:
 
 #     await connectable.dispose()
 
+
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table":
         # List of specific PostGIS/Tiger tables to ignore
         ignored_tables = {
-            'spatial_ref_sys', 'geometry_columns', 'geography_columns',
-            'raster_columns', 'raster_overviews', 'topology', 'layer',
+            "spatial_ref_sys",
+            "geometry_columns",
+            "geography_columns",
+            "raster_columns",
+            "raster_overviews",
+            "topology",
+            "layer",
             # Tiger geocoding tables
-            'place', 'tabblock', 'tabblock20', 'featnames', 'zcta5', 'edges', 
-            'faces', 'county', 'state', 'tract', 'bg', 'cousub', 'addrfeat'
+            "place",
+            "tabblock",
+            "tabblock20",
+            "featnames",
+            "zcta5",
+            "edges",
+            "faces",
+            "county",
+            "state",
+            "tract",
+            "bg",
+            "cousub",
+            "addrfeat",
         }
         # Check if table should be ignored
-        if (name in ignored_tables or 
-            name.startswith('tiger') or 
-            name.startswith('topology') or 
-            name.startswith('addr') or 
-            name.startswith('zip_') or 
-            name.startswith('pagc_') or
-            name.endswith('_lookup') or
-            name.startswith('loader_') or 
-            name.startswith('geocode_')):
+        if (
+            name in ignored_tables
+            or name.startswith("tiger")
+            or name.startswith("topology")
+            or name.startswith("addr")
+            or name.startswith("zip_")
+            or name.startswith("pagc_")
+            or name.endswith("_lookup")
+            or name.startswith("loader_")
+            or name.startswith("geocode_")
+        ):
             return False
     return True
 
