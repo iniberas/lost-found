@@ -9,6 +9,14 @@ from app.domain.use_cases.auth import (
     RefreshTokenUseCase,
     RegisterUserUseCase,
 )
+from app.domain.use_cases.user import (
+    GetUserByIdUseCase,
+    GetUserByEmailUseCase,
+    UpdateUserUseCase,
+    ChangePasswordUseCase,
+    SearchUsersUseCase,
+    DeleteUserUseCase
+)
 from app.domain.use_cases.category import (
     CreateCategoryUseCase,
     DeleteCategoryUseCase,
@@ -493,3 +501,36 @@ def get_update_found_report_form(
 
 def get_resolve_found_report_form(notes: str = Form(...)) -> ResolveFoundReportRequest:
     return ResolveFoundReportRequest(notes=notes)
+
+
+
+def get_get_user_by_id_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> GetUserByIdUseCase:
+    return GetUserByIdUseCase(repo)
+
+def get_get_user_by_email_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> GetUserByEmailUseCase:
+    return GetUserByEmailUseCase(repo)
+
+def get_update_user_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> UpdateUserUseCase:
+    return UpdateUserUseCase(repo)
+
+def get_change_password_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+    hasher: PasslibHasher = Depends(get_hasher),
+) -> ChangePasswordUseCase:
+    return ChangePasswordUseCase(repo, hasher)
+
+def get_search_users_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> SearchUsersUseCase:
+    return SearchUsersUseCase(repo)
+
+def get_delete_user_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> DeleteUserUseCase:
+    return DeleteUserUseCase(repo)

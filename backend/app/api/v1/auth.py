@@ -34,7 +34,7 @@ async def register(
             phone_number=body.phone_number,
             password=body.password,
         )
-        return UserResponse.model_validate(user)
+        return user
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
@@ -61,12 +61,6 @@ async def refresh(
         return AccessTokenResponse(**access_dict)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-
-
-@router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user)):
-    return UserResponse.model_validate(current_user)
-
 
 @router.post("/swagger-thing", include_in_schema=False)
 async def login_for_swagger(
