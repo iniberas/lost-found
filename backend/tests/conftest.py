@@ -20,27 +20,36 @@ load_dotenv()
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
 
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_database_schema():
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+
+    yield
+
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
 @pytest_asyncio.fixture(scope="function")
 async def async_engine():
     engine = create_async_engine(TEST_DATABASE_URL)
-
-    # Use Alembic to setup the test DB instead of Base.metadata
-    # This usually requires a subprocess call or using alembic's config API
-    # But for a quick fix, just make sure the DB is wiped:
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-        # We drop everything to ensure a clean start
-        await conn.run_sync(Base.metadata.drop_all)
-
-    # NOW run alembic upgrade head programmatically or via CLI before tests
-    # ... code to run alembic ...
-
     yield engine
     await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session(async_engine):
+    async with async_engine.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
+
     TestingSessionLocal = async_sessionmaker(
         async_engine,
         class_=AsyncSession,
@@ -48,9 +57,9 @@ async def db_session(async_engine):
         autocommit=False,
         autoflush=False,
     )
+
     async with TestingSessionLocal() as session:
         yield session
-        # Aman untuk berjaga-jaga jika ada transaksi yang lupa di-commit/rollback di test
         await session.rollback()
 
 
