@@ -1,12 +1,10 @@
 from app.core.dependencies import (
-    get_current_user,
     get_login_use_case,
     get_login_user_form,
     get_refresh_use_case,
     get_register_use_case,
     get_register_user_form,
 )
-from app.domain.entities.user import User
 from app.domain.use_cases.auth import (
     LoginUserUseCase,
     RefreshTokenUseCase,
@@ -61,6 +59,7 @@ async def refresh(
         return AccessTokenResponse(**access_dict)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
 
 @router.post("/swagger-thing", include_in_schema=False)
 async def login_for_swagger(

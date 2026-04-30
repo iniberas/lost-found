@@ -1,58 +1,26 @@
 import uuid
-from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from app.domain.entities.user import User, Admin
-from app.schemas.user import UserResponse, UpdateUserRequest, ChangePasswordRequest
-from app.schemas.pagination import Paginated
 from app.core.dependencies import (
-    get_current_user,
-    get_current_admin,
-    get_update_user_use_case,
-    get_update_user_form,
-    get_change_password_use_case,
     get_change_password_form,
-    get_search_users_use_case,
+    get_change_password_use_case,
+    get_current_admin,
+    get_current_user,
     get_delete_user_use_case,
-    get_get_user_by_id_use_case
+    get_update_user_form,
+    get_update_user_use_case,
+    get_user_by_id_use_case,
 )
+from app.domain.entities.user import Admin, User
 from app.domain.use_cases.user import (
-    UpdateUserUseCase,
     ChangePasswordUseCase,
-    SearchUsersUseCase,
     DeleteUserUseCase,
-    GetUserByIdUseCase
+    GetUserByIdUseCase,
+    UpdateUserUseCase,
 )
+from app.schemas.user import ChangePasswordRequest, UpdateUserRequest, UserResponse
+from fastapi import APIRouter, Depends, HTTPException, status
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-# SEARCH USERS (Admin Only)
-@router.get("/", response_model=Paginated)
-async def search_users(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    query: Optional[str] = None,
-    created_at_from: Optional[datetime] = None,
-    created_at_to: Optional[datetime] = None,
-    is_deleted: Optional[bool] = None,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-    admin: Admin = Depends(get_current_admin), # Proteksi Admin
-    use_case: SearchUsersUseCase = Depends(get_search_users_use_case),
-):
-    result = await use_case.execute(
-        page=page,
-        limit=limit,
-        query=query,
-        created_at_from=created_at_from,
-        created_at_to=created_at_to,
-        is_deleted=is_deleted,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
-    result.items = [UserResponse.model_validate(u) for u in result.items]
-    return result
 
 
 # GET PROFILE (Self)
@@ -73,7 +41,7 @@ async def update_profile(
             user_id=current_user.id,
             name=body.name,
             email=body.email,
-            phone_number=body.phone_number
+            phone_number=body.phone_number,
         )
         return user
     except ValueError as e:
@@ -91,7 +59,7 @@ async def change_password(
         await use_case.execute(
             user_id=current_user.id,
             old_password=body.old_password,
-            new_password=body.new_password
+            new_password=body.new_password,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -106,8 +74,10 @@ async def delete_user(
 ):
     # Logika proteksi: Hanya admin atau user itu sendiri yang bisa hapus
     if not isinstance(current_user, Admin) and current_user.id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-    
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+
     try:
         await use_case.execute(user_id)
     except ValueError as e:
@@ -119,7 +89,7 @@ async def delete_user(
 async def get_user(
     user_id: uuid.UUID,
     admin: Admin = Depends(get_current_admin),
-    use_case: GetUserByIdUseCase = Depends(get_get_user_by_id_use_case),
+    use_case: GetUserByIdUseCase = Depends(get_user_by_id_use_case),
 ):
     try:
         user = await use_case.execute(user_id)
