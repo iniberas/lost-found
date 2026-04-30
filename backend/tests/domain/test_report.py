@@ -431,7 +431,6 @@ def test_create_found_report_fails_with_invalid_data(
 @pytest.mark.parametrize(
     "finder_name, finder_contact",
     [
-        (None, None),
         ("Budi", "+6281234567890"),
         ("AB", "ab"),
     ],

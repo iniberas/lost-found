@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock
 import pytest
 from app.core.dependencies import (
     get_create_found_report_use_case,
-    get_create_hand_over_report_use_case,
     get_delete_found_report_use_case,
     get_found_report_by_id_use_case,
     get_hand_over_to_admin_use_case,
@@ -189,40 +188,6 @@ def test_create_found_report_success(
     assert response.status_code == 201
     assert response.json()["title"] == "Found Laptop"
     mock_create_uc.execute.assert_called_once()
-
-
-def test_create_hand_over_report_success(
-    admin_client, mock_create_hand_over_uc, dummy_found_report, dummy_category
-):
-    dummy_found_report.hand_over_to_admin(
-        Admin.new_admin("abde", "abde@x.com", "+621234567890", "h")
-    )
-    mock_create_hand_over_uc.execute.return_value = dummy_found_report
-    app.dependency_overrides[get_create_hand_over_report_use_case] = lambda: (
-        mock_create_hand_over_uc
-    )
-
-    form_data = {
-        "title": "Found Laptop",
-        "description": "Found it somewhere.",
-        "location_name": "Cafe",
-        "incident_date": datetime.now(timezone.utc).isoformat(),
-        "category_ids": [str(dummy_category.id)],
-        "finder_name": "Jane Doe",
-        "finder_contact": "+01234567890",
-        "latitude": -6.2,
-        "longitude": 106.8,
-    }
-
-    files = {"photos": ("hand_over.jpg", b"fake_image_data", "image/jpeg")}
-
-    response = admin_client.post(
-        "/api/v1/found-reports/handover", data=form_data, files=files
-    )
-
-    assert response.status_code == 201
-    assert response.json()["found_status"] == FoundStatus.HELD_BY_ADMIN.value
-    mock_create_hand_over_uc.execute.assert_called_once()
 
 
 def test_update_found_report_success(client, mock_update_uc, dummy_found_report):

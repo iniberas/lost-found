@@ -99,7 +99,7 @@ async def test_search_categories(db_session):
     cat2 = Category.new_category("Samsung Phones")
     cat3 = Category.new_category("Laptops")
     cat4 = Category.new_category("Old Tablets")
-    cat4._is_active = False 
+    cat4.delete()
     
     await repo.save(cat1)
     await repo.save(cat2)
@@ -107,7 +107,14 @@ async def test_search_categories(db_session):
     await repo.save(cat4)
     await db_session.commit()
     
-    all_active = await repo.search()
+    all_cat = await repo.search()
+    assert len(all_cat) == 4
+    assert all_cat[0].name == "Apple Phones"
+    assert all_cat[1].name == "Laptops"
+    assert all_cat[2].name == "Old Tablets"
+    assert all_cat[3].name == "Samsung Phones"
+
+    all_active = await repo.search(is_active=True)
     assert len(all_active) == 3
     assert all_active[0].name == "Apple Phones"
     assert all_active[1].name == "Laptops"

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.domain.entities.category import Category
@@ -57,7 +57,7 @@ def mock_proof_repo():
 
 @pytest.fixture
 def mock_storage():
-    storage = AsyncMock()
+    storage = MagicMock()
     storage.save_files.return_value = ["mocked_photo.jpg"]
     return storage
 
