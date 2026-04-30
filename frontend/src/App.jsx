@@ -4,9 +4,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 // pages
 import AuthPage from './pages/AuthPage';
 import HomePage from './pages/HomePage';
+import CreateReportPage from './pages/CreateReportPage';
 
 function AppContent() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState();
   const [loading, setLoading] = useState(true);
 
   const API_URL = 'http://127.0.0.1:8000'; 
@@ -50,19 +51,25 @@ function AppContent() {
 
   return (
     <Routes>
-      {/* Rute Auth */}
       <Route 
         path="/auth" 
         element={!user ? <AuthPage onLoginSuccess={() => fetchProfile(localStorage.getItem('access_token'))} /> : <Navigate to="/home" replace />} 
       />
 
-      {/* Rute Langsung arahkan ke Beranda */}
       <Route path="/" element={<Navigate to="/home" replace />} />
 
-      {/* Rute Home */}
       <Route 
         path="/home" 
         element={<HomePage user={user} handleLogout={handleLogout} />} 
+      />
+
+      <Route 
+        path="/lapor-hilang" 
+        element={<CreateReportPage user={user} handleLogout={handleLogout} />} 
+      />
+      <Route 
+        path="/lapor-temuan" 
+        element={<CreateReportPage user={user} handleLogout={handleLogout} />} 
       />
     </Routes>
   )
