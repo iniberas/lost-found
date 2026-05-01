@@ -25,7 +25,7 @@ from app.schemas.category import (
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/categories")
 
 
 @router.get("/", response_model=List[CategoryResponse])

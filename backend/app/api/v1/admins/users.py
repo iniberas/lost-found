@@ -16,7 +16,7 @@ from app.schemas.pagination import Paginated
 from app.schemas.user import UserResponse
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users")
 
 
 @router.get("", response_model=Paginated[UserResponse])
