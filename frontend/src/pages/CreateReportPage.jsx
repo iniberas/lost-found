@@ -7,8 +7,9 @@ const API_URL = import.meta.env.VITE_API_URL;
 /*
 CATATAN:
  - list kategorinya ga sesuai hifi, benerin plsplspls
- - 
-*/
+ - errornya di atas form, terus kan ngisi form discroll ke bawah gitu yah, jadi ga keliatan kalo error (mending kyk popup aja gasi?)
+ - yg "Laporan Berhasil Dibuatnya" kyk 🤢🤮🤮
+ */
 
 
 
