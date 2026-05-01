@@ -7,7 +7,8 @@ import UpdateReportPage from './pages/UpdateReportPage';
 import AuthPage from './pages/AuthPage';
 import HomePage from './pages/HomePage';
 import CreateReportPage from './pages/CreateReportPage';
-import AdminDashboardHomePage from "./pages/admin/Home";
+import AdminDashboardHomePage from "./pages/admin/HomePage";
+import ManageUsersPage from "./pages/admin/ManageUsersPage";
 
 function AppContent() {
   const [user, setUser] = useState(null);
@@ -86,6 +87,7 @@ function AppContent() {
       />
       
       <Route path="/admin" element={<AdminDashboardHomePage user={user} />} />
+      <Route path="/admin/users" element={<ManageUsersPage user={user} />} />
 
     </Routes>
   )
