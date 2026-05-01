@@ -1,7 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, PackageOpen, Calendar, MapPin } from 'lucide-react';
+import { Search, Filter, PackageOpen, Calendar, MapPin, Loader2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
+
+const API_URL = import.meta.env.VITE_API_URL;
+
+/*
+CATATAN:
+ - filter kategori belom dipake soalnya di endpoint ga nerima param kategori
+ - yang kategorinya juga masih hardcode, lom ngambil data dari DB
+ - maps juga belom diapa-apain
+ - terus yg date filter buat found reports, lom ngaruh, soalnya di endpoint entah kenapa ga dipake (tinggal dipake aja sih kyknya)
+ - itu date filternya tapi bingung deh, kan di backend kyk range (dari kapan sampe kapan), tapi di sini inputnya cuma 1 hari,
+   terus jadinya cuma kayak dari pagi sampe malemnya hari itu doang
+*/
+
 
 // INI DATA DUMMY BUAT GUA NGETEST REPORT CARD DAN LAIN LAIN YAK, GUA JADIIN COMMENT AJAH< BUAT DI PAKE LAGI SOALNYA (FARID)
 /*const dummyReports = [
@@ -61,6 +74,10 @@ const ReportCard = ({ item, onClick }) => (
       <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
         {item.description}
       </p>
+      <div className="flex items-center gap-2 text-xs text-gray-400 pt-2">
+        <MapPin size={14} />
+        <span>{item.location_name || 'Lokasi tidak disebutkan'}</span>
+      </div>
     </div>
     <div className="p-5 pt-0 mt-auto">
       <button className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-[#0C0B89] text-sm font-bold rounded-xl transition-colors border border-gray-200">
@@ -75,8 +92,100 @@ export default function HomePage({ user, handleLogout }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('lost');
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState('Semua');
   
-  const [items, setItems] = useState([]); 
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    total_pages: 1,
+    total_items: 0,
+    limit: 20
+  });
+
+  // Fetch reports dari API
+  const fetchReports = async (page = pagination.current_page) => {
+    setLoading(true);
+    setError("");
+    
+    try {
+      const endpoint = activeTab === 'lost' ? '/api/v1/lost-reports' : '/api/v1/found-reports';
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: pagination.limit.toString(),
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      });
+ 
+      // Tambahkan filter jika ada
+      if (searchQuery.trim()) {
+        params.append('query', searchQuery.trim());
+      }
+      
+      if (dateFilter) {
+        const [year, month, day] = dateFilter.split('-').map(Number);
+
+        const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+        const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+
+        params.append('incident_date_from', startDate.toISOString());
+        params.append('incident_date_to', endDate.toISOString());
+      }
+ 
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(`${API_URL}${endpoint}?${params}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+ 
+      if (!response.ok) {
+        throw new Error("Gagal mengambil data laporan");
+      }
+ 
+      const data = await response.json();
+      
+      setItems(data.items);
+      setPagination({
+        current_page: data.current_page,
+        total_pages: data.total_pages,
+        total_items: data.total_items,
+        limit: data.limit
+      });
+ 
+    } catch (err) {
+      console.error("Error fetching reports:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+ 
+  // Fetch data saat component mount atau activeTab berubah
+  useEffect(() => {
+    fetchReports();
+  }, [activeTab, pagination.current_page]);
+ 
+  // Handle apply filter
+  const handleApplyFilter = () => {
+    // Reset ke page 1 saat apply filter
+    setPagination(prev => ({ ...prev, current_page: 1 }));
+    fetchReports(1);
+  };
+ 
+  // Handle tab change
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    // Reset filters ketika ganti tab
+    setSearchQuery("");
+    setDateFilter("");
+    setSelectedCategory('Semua'); // tapi ini lom dipake huhu, di endpoint gada filter buat kategori ummm. dan lom lom ngambil kategori dari db juga
+    setPagination(prev => ({ ...prev, current_page: 1 }));
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -116,38 +225,85 @@ export default function HomePage({ user, handleLogout }) {
           <div className="flex-grow space-y-6">
             <div className="flex bg-white shadow-sm border border-gray-100 p-1.5 rounded-2xl w-fit">
               <button 
-                onClick={() => setActiveTab('lost')}
+                onClick={() => handleTabChange('lost')}
                 className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'lost' ? 'bg-[#0C0B89] text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
               >
                 Daftar Barang Hilang
               </button>
               <button 
-                onClick={() => setActiveTab('found')}
+                onClick={() => handleTabChange('found')}
                 className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'found' ? 'bg-[#0C0B89] text-white shadow-md' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
               >
                 Daftar Barang Temuan
               </button>
             </div>
 
+            {/* Notifikasi Error / Sukses */}
+            {error && (
+              <div className={`p-3 rounded-lg text-sm font-medium ${error.includes('Success') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                {error}
+              </div>
+            )}
+
             {/* Render List Laporan atau pesan blum ada laporan */}
-            {items.length === 0 ? (
+            {/* Loading State */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                <Loader2 size={48} className="text-[#0C0B89] animate-spin mb-4" />
+                <p className="text-sm text-gray-500">Memuat data...</p>
+              </div>
+            ) : items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
                 <PackageOpen size={64} strokeWidth={1.5} className="text-gray-300 mb-4" />
                 <h3 className="text-xl font-bold text-gray-800 mb-1">Belum ada laporan</h3>
                 <p className="text-sm text-gray-500 text-center max-w-sm">
                   Saat ini belum ada barang yang dilaporkan {activeTab === 'lost' ? 'hilang' : 'ditemukan'}. Jadilah orang pertama yang melapor jika kamu membutuhkannya!
+                  {searchQuery && " Coba ubah kata kunci pencarian atau filter yang digunakan."}
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {items.map(item => (
-                  <ReportCard 
-                    key={item.id} 
-                    item={item} 
-                    onClick={() => navigate(`/report/${item.id}`)} 
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {items.map(item => (
+                    <ReportCard 
+                      key={item.id} 
+                      item={item} 
+                      onClick={() => navigate(`/report/${item.id}`)} 
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {pagination.total_pages > 1 && (
+                  <div className="flex justify-center gap-2 mt-8">
+                    <button
+                      onClick={() => {
+                        if (pagination.current_page > 1) {
+                          setPagination(prev => ({ ...prev, current_page: prev.current_page - 1 }));
+                        }
+                      }}
+                      disabled={pagination.current_page === 1}
+                      className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Sebelumnya
+                    </button>
+                    <span className="px-4 py-2 text-sm text-gray-600">
+                      Halaman {pagination.current_page} dari {pagination.total_pages}
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (pagination.current_page < pagination.total_pages) {
+                          setPagination(prev => ({ ...prev, current_page: prev.current_page + 1 }));
+                        }
+                      }}
+                      disabled={pagination.current_page === pagination.total_pages}
+                      className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Selanjutnya
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -169,6 +325,11 @@ export default function HomePage({ user, handleLogout }) {
                     className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#0C0B89]/20 transition-all"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleApplyFilter();
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -181,6 +342,8 @@ export default function HomePage({ user, handleLogout }) {
                   <input 
                     type="date" 
                     className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#0C0B89]/20 transition-all text-gray-600"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
                   />
                 </div>
               </div>
@@ -203,14 +366,23 @@ export default function HomePage({ user, handleLogout }) {
                 <div className="space-y-3">
                   {['Semua', 'Elektronik', 'Dokumen', 'Pakaian', 'Lain-lain'].map((cat) => (
                     <label key={cat} className="flex items-center gap-3 cursor-pointer group">
-                      <input type="radio" name="category" className="w-5 h-5 accent-[#0C0B89]" defaultChecked={cat === 'Semua'} />
+                      <input
+                        type="radio"
+                        name="category"
+                        className="w-5 h-5 accent-[#0C0B89]"
+                        checked={selectedCategory === cat}
+                        onChange={() => setSelectedCategory(cat)}
+                      />
                       <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium transition-colors">{cat}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <button className="w-full py-3.5 mt-2 bg-[#0C0B89] text-white rounded-2xl font-bold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all">
+              <button
+                onClick={handleApplyFilter}
+                disabled={loading}
+                className="w-full py-3.5 mt-2 bg-[#0C0B89] text-white rounded-2xl font-bold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all">
                 Terapkan Filter
               </button>
             </div>

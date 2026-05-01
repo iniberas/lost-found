@@ -12,7 +12,7 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = 'http://127.0.0.1:8000'; 
+  const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -22,7 +22,7 @@ function AppContent() {
 
   const fetchProfile = async (token) => {
     try {
-      const response = await fetch(`${API_URL}/user/me`, {
+      const response = await fetch(`${API_URL}/api/v1/users/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
