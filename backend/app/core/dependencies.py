@@ -73,8 +73,8 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-thing")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-thing")
 
 
 def get_hasher() -> PasslibHasher:
@@ -326,23 +326,6 @@ def get_potential_lost_reports_use_case(
     found_repo: FoundReportRepository = Depends(get_found_report_repo),
 ) -> FindPotentialLostReportsUseCase:
     return FindPotentialLostReportsUseCase(lost_repo, found_repo)
-
-
-def get_register_user_form(
-    name: str = Form(...),
-    email: EmailStr = Form(...),
-    phone_number: str = Form(...),
-    password: str = Form(...),
-) -> RegisterUserRequest:
-    return RegisterUserRequest(
-        name=name, email=email, phone_number=phone_number, password=password
-    )
-
-
-def get_login_user_form(
-    email: EmailStr = Form(...), password: str = Form(...)
-) -> LoginUserRequest:
-    return LoginUserRequest(email=email, password=password)
 
 
 def get_update_user_form(
