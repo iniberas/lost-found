@@ -217,7 +217,13 @@ export default function ReportDetailPage({ user, handleLogout }) {
                   <button className="bg-[#B30000] text-white px-8 py-2 rounded-md font-medium hover:bg-[#8a0000] text-sm shadow-sm">Delete Report</button>
                 </>
               ) : (
-                <button className="bg-[#314CBB] text-white px-8 py-2 rounded-md font-medium hover:bg-[#273d96] text-sm shadow-sm">Request Contact</button>
+                <button className="bg-[#314CBB] text-white px-8 py-2 rounded-md font-medium hover:bg-[#273d96] text-sm shadow-sm">
+                  {activeTab === 'found' ? (
+                    <>Request Contact</>
+                  ) : (
+                    <>Saya Menemukan Ini</>
+                  )}
+                </button>
               )}
             </div>
           </div>
