@@ -181,9 +181,9 @@ export default function HomePage({ user, handleLogout }) {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     // Reset filters ketika ganti tab
-    setSearchQuery("");
-    setDateFilter("");
-    setSelectedCategory('Semua'); // tapi ini lom dipake huhu, di endpoint gada filter buat kategori ummm. dan lom lom ngambil kategori dari db juga
+    // setSearchQuery("");
+    // setDateFilter("");
+    // setSelectedCategory('Semua');
     setPagination(prev => ({ ...prev, current_page: 1 }));
   };
 
@@ -268,7 +268,7 @@ export default function HomePage({ user, handleLogout }) {
                     <ReportCard 
                       key={item.id} 
                       item={item} 
-                      onClick={() => navigate(`/report/${item.id}`)} 
+                      onClick={() => navigate(`/report/${item.id}?type=${item.report_type}`)} 
                     />
                   ))}
                 </div>
