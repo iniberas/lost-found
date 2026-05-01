@@ -19,7 +19,7 @@ const AdminSidebar = () => {
       className="w-[220px] min-h-full flex flex-col shrink-0 font-poppins"
       style={{ backgroundColor: ADMIN_COLORS.sidebarBg }}
     >
-      <nav className="flex flex-col gap-1 p-3 flex-grow">
+      <nav className="flex flex-col gap-3 p-3 flex-grow">
         {navItems.map(({ label, icon: Icon, path }) => {
           const isActive = location.pathname === path;
           return (
