@@ -33,7 +33,7 @@ from fastapi import (
     status,
 )
 
-router = APIRouter(prefix="/reports", tags=["categories"])
+router = APIRouter(prefix="/reports")
 
 
 @router.get("/lost-reports", response_model=Paginated[LostReportResponse])
