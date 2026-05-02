@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { X, Upload } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 /*
 CATATAN:
- - list kategorinya ga sesuai hifi, benerin plsplspls
  - errornya di atas form, terus kan ngisi form discroll ke bawah gitu yah, jadi ga keliatan kalo error (mending kyk popup aja gasi?)
- - yg "Laporan Berhasil Dibuatnya" kyk 🤢🤮🤮
  */
 
 
@@ -27,12 +26,13 @@ export default function CreateReportPage({ user, handleLogout }) {
     latitude: null,
     longitude: null
   });
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previewImages, setPreviewImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const fileInputRef = useRef(null);
 
@@ -76,12 +76,16 @@ export default function CreateReportPage({ user, handleLogout }) {
   }, [location]);
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      const imageUrl = URL.createObjectURL(file);
-      setPreviewImage(imageUrl);
-    }
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setSelectedFiles(prev => [...prev, ...files]);
+    setPreviewImages(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+  };
+
+  const handleRemovePhoto = (index) => {
+    URL.revokeObjectURL(previewImages[index]);
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleChange = (e) => {
@@ -142,9 +146,7 @@ export default function CreateReportPage({ user, handleLogout }) {
     if (formData.latitude) dataToSend.append('latitude', formData.latitude);
     if (formData.longitude) dataToSend.append('longitude', formData.longitude);
     
-    if (selectedFile) {
-      dataToSend.append('photos', selectedFile);
-    }
+    selectedFiles.forEach(file => dataToSend.append('photos', file));
 
     try {
       const token = localStorage.getItem("access_token");
@@ -162,8 +164,9 @@ export default function CreateReportPage({ user, handleLogout }) {
         throw new Error(result.detail || "Gagal membuat laporan");
       }
 
-      alert("Laporan berhasil dibuat!");
-      navigate('/home'); // Alihkan setelah sukses
+      // alert("Laporan berhasil dibuat!");
+      // navigate('/home'); // Alihkan setelah sukses
+      setShowSuccessModal(true);
       
     } catch (err) {
       setError(err.message);
@@ -224,29 +227,41 @@ export default function CreateReportPage({ user, handleLogout }) {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Kategori <span className="text-red-500">*</span>
                 </label>
+
                 {loadingCategories ? (
-                  <div className="text-sm text-gray-500">Memuat kategori...</div>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 animate-pulse">
+                    <div className="w-4 h-4 border-2 border-t-transparent border-[#314CBB] rounded-full animate-spin"></div>
+                    Memuat kategori...
+                  </div>
                 ) : (
-                  <div className="border border-gray-300 rounded-md p-4 space-y-2 max-h-48 overflow-y-auto bg-white">
+                  <div className="flex flex-wrap gap-2">
                     {categories.length === 0 ? (
-                      <div className="text-sm text-gray-500">Tidak ada kategori tersedia</div>
+                      <div className="text-sm text-gray-500 italic">Tidak ada kategori tersedia</div>
                     ) : (
-                      categories.map((category) => (
-                        <label key={category.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={formData.category_ids.includes(category.id)}
-                            onChange={() => handleCategoryChange(category.id)}
-                            className="w-4 h-4 text-[#364b98] border-gray-300 rounded focus:ring-[#364b98]"
-                          />
-                          <span className="text-sm text-gray-700">{category.name}</span>
-                        </label>
-                      ))
+                      categories.map((category) => {
+                        const isSelected = formData.category_ids.includes(category.id);
+                        return (
+                          <button
+                            key={category.id}
+                            type="button" // Penting agar tidak trigger submit form
+                            onClick={() => handleCategoryChange(category.id)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-[#314CBB] text-white border-[#314CBB] shadow-sm'
+                                : 'bg-white text-gray-600 border-gray-300 hover:border-[#314CBB] hover:text-[#314CBB]'
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 )}
+
                 {formData.category_ids.length > 0 && (
-                  <div className="mt-2 text-xs text-gray-500">
+                  <div className="mt-3 flex items-center text-xs font-medium text-[#314CBB]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#314CBB] mr-2"></span>
                     {formData.category_ids.length} kategori dipilih
                   </div>
                 )}
@@ -306,41 +321,36 @@ export default function CreateReportPage({ user, handleLogout }) {
               {/* Upload Foto */}
               <div className="mt-auto pt-2">
                 <label className="block text-sm font-medium text-gray-900 mb-2">Upload Foto</label>
-                <div className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-gray-50/50 min-h-[140px]">
-                  
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
+                
+                {previewImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    {previewImages.map((url, i) => (
+                      <div key={url} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
+                        <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(i)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <label className="w-full h-12 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors gap-2 text-gray-400 text-sm">
+                  <Upload size={16} />
+                  <span>Tambah Foto</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
                     ref={fileInputRef}
                     onChange={handleFileChange}
                   />
-
-                  {previewImage ? (
-                    <div className="flex flex-col items-center w-full">
-                      <img 
-                        src={previewImage} 
-                        alt="Preview" 
-                        className="max-h-32 object-contain rounded mb-3 shadow-sm border border-gray-200"
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => {setPreviewImage(null); setSelectedFile(null); }}
-                        className="text-red-500 text-sm font-medium hover:underline"
-                      >
-                        Hapus Foto
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => fileInputRef.current.click()} // Tombol ini me-trigger input yang tersembunyi
-                      className="bg-[#364b98] text-white px-6 py-2 rounded-md font-medium hover:bg-[#2a3a75] transition-colors"
-                    >
-                      Select Files
-                    </button>
-                  )}
-                </div>
+                </label>
               </div>
             </div>
 
@@ -357,6 +367,27 @@ export default function CreateReportPage({ user, handleLogout }) {
 
           </form>
         </div>
+        {showSuccessModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <h3 className="text-lg font-bold text-gray-900 mb-2">Laporan Berhasil Dibuat!</h3>
+      <p className="text-sm text-gray-600 mb-6">
+        Laporan {reportType === 'penemuan' ? 'penemuan' : 'kehilangan'} kamu sudah berhasil dikirim.
+      </p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={() => {
+            setShowSuccessModal(false);
+            navigate('/home');
+          }}
+          className="px-4 py-2 text-sm font-medium text-white bg-[#314CBB] rounded-md hover:bg-[#273d96]"
+        >
+          Oke
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

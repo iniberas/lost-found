@@ -78,6 +78,9 @@ const ReportCard = ({ item, onClick }) => (
         <MapPin size={14} />
         <span>{item.location_name || 'Lokasi tidak disebutkan'}</span>
       </div>
+      <div className="flex items-center gap-2 text-xs text-gray-400 pt-2">
+        <span>{item.report_status}</span>
+      </div>
     </div>
     <div className="p-5 pt-0 mt-auto">
       <button className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-[#0C0B89] text-sm font-bold rounded-xl transition-colors border border-gray-200">
@@ -94,6 +97,7 @@ export default function HomePage({ user, handleLogout }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [selectedStatuses, setSelectedStatuses] = useState(['open']); // Default hanya open
   
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -104,6 +108,37 @@ export default function HomePage({ user, handleLogout }) {
     total_items: 0,
     limit: 20
   });
+
+  // Status options
+  const statusOptions = [
+    { value: 'open', label: 'Open' },
+    { value: 'resolved', label: 'Selesai' },
+    { value: 'closed', label: 'Ditutup' }
+  ];
+
+  // Handle status checkbox change
+  const handleStatusChange = (statusValue) => {
+    setSelectedStatuses(prev => {
+      if (prev.includes(statusValue)) {
+        // Remove status
+        return prev.filter(s => s !== statusValue);
+      } else {
+        // Add status
+        return [...prev, statusValue];
+      }
+    });
+  };
+
+  // Handle "Semua" checkbox
+  const handleAllStatusChange = () => {
+    if (selectedStatuses.length === statusOptions.length) {
+      // If all selected, deselect all (default to open only)
+      setSelectedStatuses(['open']);
+    } else {
+      // Select all
+      setSelectedStatuses(statusOptions.map(opt => opt.value));
+    }
+  };
 
   // Fetch reports dari API
   const fetchReports = async (page = pagination.current_page) => {
@@ -118,7 +153,7 @@ export default function HomePage({ user, handleLogout }) {
         page: page.toString(),
         limit: pagination.limit.toString(),
         sort_by: 'created_at',
-        sort_order: 'desc'
+        sort_order: 'desc',
       });
  
       // Tambahkan filter jika ada
@@ -134,6 +169,13 @@ export default function HomePage({ user, handleLogout }) {
 
         params.append('incident_date_from', startDate.toISOString());
         params.append('incident_date_to', endDate.toISOString());
+      }
+
+      // Tambahkan report_status filter (hanya jika ada yang dipilih)
+      if (selectedStatuses.length > 0) {
+        selectedStatuses.forEach(status => {
+          params.append('report_status', status);
+        });
       }
  
       const token = localStorage.getItem("access_token");
@@ -331,6 +373,40 @@ export default function HomePage({ user, handleLogout }) {
                       }
                     }}
                   />
+                </div>
+              </div>
+
+              {/* Filter Status Laporan */}
+              <div className="space-y-4">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status Laporan</label>
+                <div className="space-y-3">
+                  {/* Semua checkbox */}
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 accent-[#0C0B89] rounded"
+                      checked={selectedStatuses.length === statusOptions.length}
+                      onChange={handleAllStatusChange}
+                    />
+                    <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium transition-colors">
+                      Semua
+                    </span>
+                  </label>
+                  
+                  {/* Individual status checkboxes */}
+                  {statusOptions.map((status) => (
+                    <label key={status.value} className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 accent-[#0C0B89] rounded"
+                        checked={selectedStatuses.includes(status.value)}
+                        onChange={() => handleStatusChange(status.value)}
+                      />
+                      <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium transition-colors">
+                        {status.label}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
