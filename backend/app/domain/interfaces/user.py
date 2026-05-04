@@ -23,11 +23,12 @@ class IUserRepository(ABC):
     def search(
         self,
         query: Optional[str] = None,
+        role: Optional[str] = None, 
         created_at_from: Optional[datetime] = None,
         created_at_to: Optional[datetime] = None,
         is_deleted: Optional[bool] = None,
-        sort_by: str = "created_at", # created_at, name, email
-        sort_order: str = "desc", # asc or desc
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
         limit: int = 20,
         offset: int = 0,
     ) -> List[User]:
@@ -37,6 +38,7 @@ class IUserRepository(ABC):
     def count_search(
         self,
         query: Optional[str] = None,
+        role: Optional[str] = None, 
         created_at_from: Optional[datetime] = None,
         created_at_to: Optional[datetime] = None,
         is_deleted: Optional[bool] = None,

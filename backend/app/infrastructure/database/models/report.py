@@ -115,6 +115,10 @@ class FoundReportModel(ReportModel):
 
     holder_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
 
+    storage_location_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("storage_locations.id")
+    )
+
     found_status: Mapped[FoundStatus | None] = mapped_column(
         Enum(FoundStatus, name="found_status_enum", create_constraint=True)
     )
@@ -130,6 +134,10 @@ class FoundReportModel(ReportModel):
         lazy="selectin",
     )
     proof: Mapped["ProofModel | None"] = relationship(lazy="selectin")
+
+    storage_location: Mapped["StorageLocationModel | None"] = relationship(
+        lazy="selectin"
+    )
 
     __mapper_args__ = {
         "polymorphic_identity": "found",

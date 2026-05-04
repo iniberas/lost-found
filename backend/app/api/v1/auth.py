@@ -1,6 +1,5 @@
 from app.core.dependencies import (
     get_login_use_case,
-    get_login_user_form,
     get_refresh_use_case,
     get_register_use_case,
     get_register_user_form,
@@ -15,7 +14,7 @@ from app.schemas.user import LoginUserRequest, RegisterUserRequest, UserResponse
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post(
@@ -39,7 +38,7 @@ async def register(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    body: LoginUserRequest = Depends(get_login_user_form),
+    body: LoginUserRequest,
     use_case: LoginUserUseCase = Depends(get_login_use_case),
 ):
     try:

@@ -56,6 +56,7 @@ class Settings(BaseSettings):
             self.BACKEND_CORS_ORIGINS = [
                 f"http://localhost:{self.FRONTEND_PORT}",
                 f"http://127.0.0.1:{self.FRONTEND_PORT}",
+                f"http://0.0.0.0:{self.FRONTEND_PORT}",
             ]
 
         return self
