@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 
 class UserResponse(BaseModel):
     id: uuid.UUID
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserDetailResponse(BaseModel):
+    id: uuid.UUID
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None

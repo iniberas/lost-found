@@ -8,24 +8,11 @@ from app.domain.entities.report import (
     ReportType,
 )
 from app.schemas.category import CategoryResponse
+from app.schemas.point import PointSchema
+from app.schemas.proof import ProofResponse
+from app.schemas.storage_location import StorageLocationResponse
 from app.schemas.user import UserResponse
 from pydantic import BaseModel, ConfigDict
-
-
-class PointSchema(BaseModel):
-    latitude: float
-    longitude: float
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ProofResponse(BaseModel):
-    id: uuid.UUID
-    created_at: datetime
-    photos: List[str]
-    notes: str
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class LostReportResponse(BaseModel):
@@ -68,6 +55,7 @@ class FoundReportResponse(BaseModel):
     proof: Optional[ProofResponse] = None
     finder_name: Optional[str] = None
     finder_contact: Optional[str] = None
+    storage_location: Optional[StorageLocationResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -87,17 +75,6 @@ class CreateFoundReportRequest(BaseModel):
     location_name: str
     incident_date: datetime
     category_ids: List[uuid.UUID]
-    location_point: Optional[PointSchema] = None
-
-
-class CreateHandOverReportRequest(BaseModel):
-    title: str
-    description: str
-    location_name: str
-    incident_date: datetime
-    category_ids: List[uuid.UUID]
-    finder_name: str
-    finder_contact: str
     location_point: Optional[PointSchema] = None
 
 

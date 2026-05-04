@@ -8,7 +8,6 @@ from app.core.dependencies import (
     get_current_user,
     get_delete_found_report_use_case,
     get_found_report_by_id_use_case,
-    get_hand_over_to_admin_use_case,
     get_potential_lost_reports_use_case,
     get_resolve_found_report_form,
     get_resolve_found_report_use_case,
@@ -25,7 +24,6 @@ from app.domain.use_cases.report import (
     DeleteFoundReportUseCase,
     FindPotentialLostReportsUseCase,
     GetFoundReportByIdUseCase,
-    HandOverToAdminUseCase,
     ResolveFoundReportUseCase,
     SearchFoundReportsUseCase,
     UpdateFoundReportUseCase,
@@ -42,14 +40,13 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
-    Form,
     HTTPException,
     Query,
     UploadFile,
     status,
 )
 
-router = APIRouter(prefix="/found-reports", tags=["found-reports"])
+router = APIRouter(prefix="/found-reports", tags=["Found Reports"])
 
 
 @router.get("", response_model=Paginated[FoundReportResponse])
@@ -63,7 +60,7 @@ async def search_found_reports(
     incident_date_to: Optional[datetime] = Query(None),
     latitude: Optional[float] = Query(None),
     longitude: Optional[float] = Query(None),
-    radius_km: Optional[float] = Query(None),
+    radius_km: Optional[float] = Query(None),   
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
     use_case: SearchFoundReportsUseCase = Depends(get_search_found_reports_use_case),
@@ -211,28 +208,6 @@ async def resolve_found_report(
             user=current_user,
             photo_files=photo_files,
             notes=body.notes,
-        )
-        return FoundReportResponse.model_validate(report)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-    except (ValidationError, StateTransitionError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
-        )
-
-
-@router.post("/{report_id}/hand_over-to-admin", response_model=FoundReportResponse)
-async def hand_over_to_admin(
-    report_id: uuid.UUID,
-    admin_id: uuid.UUID = Form(...),
-    current_user: User = Depends(get_current_user),
-    use_case: HandOverToAdminUseCase = Depends(get_hand_over_to_admin_use_case),
-):
-    try:
-        report = await use_case.execute(
-            report_id=report_id, user=current_user, admin_id=admin_id
         )
         return FoundReportResponse.model_validate(report)
     except ValueError as e:

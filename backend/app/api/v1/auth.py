@@ -13,7 +13,7 @@ from app.schemas.user import LoginUserRequest, RegisterUserRequest, UserResponse
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post(

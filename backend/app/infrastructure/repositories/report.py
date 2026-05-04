@@ -11,13 +11,16 @@ from app.domain.entities.report import (
     LostReport,
     ReportStatus,
 )
-from app.domain.entities.user import Admin, User
+from app.domain.entities.storage_location import StorageLocation
+from app.domain.entities.user import Admin, SuperAdmin, User
 from app.domain.interfaces.report import IFoundReportRepository, ILostReportRepository
 from app.infrastructure.database.models.category import CategoryModel
 from app.infrastructure.database.models.report import (
     FoundReportModel,
     LostReportModel,
-    report_categories,
+)
+from app.infrastructure.database.models.storage_location import (
+    StorageLocationModel,
 )
 from app.infrastructure.database.models.user import UserRole
 from geoalchemy2.elements import WKTElement
@@ -31,7 +34,9 @@ MATCH_RADIUS_METERS = 10000
 
 
 def _user_from_model(m) -> User:
-    if m.role == UserRole.ADMIN:
+    if m.role == UserRole.SUPERADMIN:
+        cls = SuperAdmin
+    elif m.role == UserRole.ADMIN:
         cls = Admin
     else:
         cls = User
@@ -64,6 +69,23 @@ def _point_to_geography(point: Optional[Point]) -> Optional[WKTElement]:
         wkt = f"POINT({point.longitude} {point.latitude})"
         return WKTElement(wkt, srid=4326)
     return None
+
+
+def _storage_location_from_model(
+    m: Optional[StorageLocationModel],
+) -> Optional[StorageLocation]:
+    if not m:
+        return None
+
+    return StorageLocation(
+        id=m.id,
+        created_at=m.created_at,
+        updated_at=m.updated_at,
+        name=m.name,
+        description=m.description,
+        location_point=_point_from_model(m),
+        is_active=m.is_active,
+    )
 
 
 class LostReportRepository(ILostReportRepository):
@@ -225,9 +247,13 @@ class LostReportRepository(ILostReportRepository):
         )
         category_ids = [c.id for c in found_report.categories]
         if category_ids:
-            stmt = stmt.join(LostReportModel.categories).where(
-                CategoryModel.id.in_(category_ids)
-            )
+            from app.infrastructure.database.models.report import report_categories
+
+            stmt = stmt.join(
+                report_categories,
+                report_categories.c.report_id == LostReportModel.id,
+            ).where(report_categories.c.category_id.in_(category_ids))
+
         if found_report.location_point:
             target_geom = _point_to_geography(found_report.location_point)
             stmt = stmt.where(
@@ -268,7 +294,7 @@ class LostReportRepository(ILostReportRepository):
 
             stmt = stmt.join(
                 report_categories,
-                report_categories.c.lost_report_id == LostReportModel.id,
+                report_categories.c.report_id == LostReportModel.id,
             ).where(report_categories.c.category_id.in_(category_ids))
         if report_status:
             stmt = stmt.where(
@@ -313,6 +339,9 @@ class FoundReportRepository(IFoundReportRepository):
                 photos=list(m.proof.photos or []),
                 notes=m.proof.notes,
             )
+
+        storage_location = _storage_location_from_model(m.storage_location)
+
         return FoundReport(
             id=m.id,
             created_at=m.created_at,
@@ -333,6 +362,7 @@ class FoundReportRepository(IFoundReportRepository):
             proof=proof,
             finder_name=m.finder_name,
             finder_contact=m.finder_contact,
+            storage_location=storage_location,
         )
 
     async def _sync_categories(self, model, categories: List[Category]):
@@ -352,11 +382,13 @@ class FoundReportRepository(IFoundReportRepository):
             options=[selectinload(FoundReportModel.categories)],
         )
         location_geom = _point_to_geography(report.location_point)
+        storage_loc_id = report.storage_location.id if report.storage_location else None
 
         if existing:
             existing.updated_at = report.updated_at
             existing.deleted_at = report.deleted_at
             existing.holder_id = report.holder.id
+            existing.storage_location_id = storage_loc_id
             existing.title = report.title
             existing.description = report.description
             existing.location_name = report.location_name
@@ -378,6 +410,7 @@ class FoundReportRepository(IFoundReportRepository):
                 deleted_at=report.deleted_at,
                 reporter_id=report.reporter.id,
                 holder_id=report.holder.id,
+                storage_location_id=storage_loc_id,
                 title=report.title,
                 description=report.description,
                 location_name=report.location_name,
@@ -403,6 +436,7 @@ class FoundReportRepository(IFoundReportRepository):
                 selectinload(FoundReportModel.holder),
                 selectinload(FoundReportModel.categories),
                 selectinload(FoundReportModel.proof),
+                selectinload(FoundReportModel.storage_location),
             )
             .where(FoundReportModel.id == report_id)
         )
@@ -421,6 +455,7 @@ class FoundReportRepository(IFoundReportRepository):
         location_point: Optional[Point] = None,
         location_radius: Optional[float] = None,
         found_status: Optional[FoundStatus] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
         limit: int = 20,
@@ -431,6 +466,7 @@ class FoundReportRepository(IFoundReportRepository):
             selectinload(FoundReportModel.holder),
             selectinload(FoundReportModel.categories),
             selectinload(FoundReportModel.proof),
+            selectinload(FoundReportModel.storage_location),
         )
         stmt = self._apply_filters(
             stmt,
@@ -443,6 +479,7 @@ class FoundReportRepository(IFoundReportRepository):
             location_point,
             location_radius,
             found_status,
+            storage_location_id,
         )
         stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
         stmt = stmt.limit(limit).offset(offset)
@@ -460,6 +497,7 @@ class FoundReportRepository(IFoundReportRepository):
         location_point: Optional[Point] = None,
         location_radius: Optional[float] = None,
         found_status: Optional[FoundStatus] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
     ) -> int:
         stmt = select(func.count()).select_from(FoundReportModel)
         stmt = self._apply_filters(
@@ -473,6 +511,7 @@ class FoundReportRepository(IFoundReportRepository):
             location_point,
             location_radius,
             found_status,
+            storage_location_id,
         )
         result = await self.session.execute(stmt)
         return result.scalar_one()
@@ -487,18 +526,25 @@ class FoundReportRepository(IFoundReportRepository):
                 selectinload(FoundReportModel.holder),
                 selectinload(FoundReportModel.categories),
                 selectinload(FoundReportModel.proof),
+                selectinload(FoundReportModel.storage_location),
             )
             .where(
                 FoundReportModel.report_status == ReportStatus.OPEN.value,
-                FoundReportModel.found_status == FoundStatus.HELD_BY_FINDER.value,
+                FoundReportModel.found_status.in_(
+                    [FoundStatus.HELD_BY_FINDER.value, FoundStatus.HELD_BY_ADMIN.value]
+                ),
                 FoundReportModel.deleted_at.is_(None),
             )
         )
         category_ids = [c.id for c in lost_report.categories]
         if category_ids:
-            stmt = stmt.join(FoundReportModel.categories).where(
-                CategoryModel.id.in_(category_ids)
-            )
+            from app.infrastructure.database.models.report import report_categories
+
+            stmt = stmt.join(
+                report_categories,
+                report_categories.c.report_id == FoundReportModel.id,
+            ).where(report_categories.c.category_id.in_(category_ids))
+
         if lost_report.location_point:
             target_geom = _point_to_geography(lost_report.location_point)
             stmt = stmt.where(
@@ -525,6 +571,7 @@ class FoundReportRepository(IFoundReportRepository):
         location_point,
         location_radius,
         found_status,
+        storage_location_id,
     ):
         stmt = stmt.where(FoundReportModel.deleted_at.is_(None))
         if query:
@@ -538,9 +585,11 @@ class FoundReportRepository(IFoundReportRepository):
         if user_ids:
             stmt = stmt.where(FoundReportModel.reporter_id.in_(user_ids))
         if category_ids:
+            from app.infrastructure.database.models.report import report_categories
+
             stmt = stmt.join(
                 report_categories,
-                report_categories.c.found_report_id == FoundReportModel.id,
+                report_categories.c.report_id == FoundReportModel.id,
             ).where(report_categories.c.category_id.in_(category_ids))
         if report_status:
             stmt = stmt.where(
@@ -548,6 +597,11 @@ class FoundReportRepository(IFoundReportRepository):
             )
         if found_status:
             stmt = stmt.where(FoundReportModel.found_status == found_status.value)
+        if storage_location_id:
+            stmt = stmt.where(
+                FoundReportModel.storage_location_id == storage_location_id
+            )
+
         if incident_date_from:
             stmt = stmt.where(FoundReportModel.incident_date >= incident_date_from)
         if incident_date_to:

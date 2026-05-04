@@ -19,11 +19,26 @@ def mock_user_repo():
 
 
 @pytest.fixture
+def mock_audit_log_repo():
+    return AsyncMock()
+
+
+@pytest.fixture
 def mock_hasher():
     hasher = MagicMock()
     hasher.hash.return_value = "new_hashed_password"
     hasher.verify.return_value = True
     return hasher
+
+
+@pytest.fixture
+def dummy_actor():
+    return User.new_user(
+        name="Admin",
+        email="admin@example.com",
+        phone_number="+628111111111",
+        password_hash="hash",
+    )
 
 
 @pytest.fixture
@@ -56,8 +71,8 @@ async def test_get_user_by_email_success(mock_user_repo, dummy_user):
 
 
 @pytest.mark.asyncio
-async def test_update_user_success(mock_user_repo, dummy_user):
-    usecase = UpdateUserUseCase(mock_user_repo)
+async def test_update_user_success(mock_user_repo, mock_audit_log_repo, dummy_user):
+    usecase = UpdateUserUseCase(mock_user_repo, mock_audit_log_repo)
     mock_user_repo.get_by_id.return_value = dummy_user
     mock_user_repo.find_by_email.return_value = None
 
@@ -68,11 +83,14 @@ async def test_update_user_success(mock_user_repo, dummy_user):
     assert updated.name == "Budi Updated"
     assert updated.email == "newbudi@apps.ipb.ac.id"
     mock_user_repo.save.assert_called_once()
+    mock_audit_log_repo.save.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_update_user_fails_if_email_taken(mock_user_repo, dummy_user):
-    usecase = UpdateUserUseCase(mock_user_repo)
+async def test_update_user_fails_if_email_taken(
+    mock_user_repo, mock_audit_log_repo, dummy_user
+):
+    usecase = UpdateUserUseCase(mock_user_repo, mock_audit_log_repo)
     mock_user_repo.get_by_id.return_value = dummy_user
     mock_user_repo.find_by_email.return_value = User.new_user(
         "Other", "taken@x.com", "+6201234567890", "h"
@@ -83,8 +101,10 @@ async def test_update_user_fails_if_email_taken(mock_user_repo, dummy_user):
 
 
 @pytest.mark.asyncio
-async def test_change_password_success(mock_user_repo, mock_hasher, dummy_user):
-    usecase = ChangePasswordUseCase(mock_user_repo, mock_hasher)
+async def test_change_password_success(
+    mock_user_repo, mock_hasher, mock_audit_log_repo, dummy_user
+):
+    usecase = ChangePasswordUseCase(mock_user_repo, mock_hasher, mock_audit_log_repo)
     mock_user_repo.get_by_id.return_value = dummy_user
 
     await usecase.execute(dummy_user.id, "OldPass123", "NewPass123")
@@ -92,13 +112,14 @@ async def test_change_password_success(mock_user_repo, mock_hasher, dummy_user):
     assert dummy_user.password_hash == "new_hashed_password"
     mock_hasher.verify.assert_called_once()
     mock_user_repo.save.assert_called_once()
+    mock_audit_log_repo.save.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_change_password_fails_if_wrong_old_password(
-    mock_user_repo, mock_hasher, dummy_user
+    mock_user_repo, mock_hasher, mock_audit_log_repo, dummy_user
 ):
-    usecase = ChangePasswordUseCase(mock_user_repo, mock_hasher)
+    usecase = ChangePasswordUseCase(mock_user_repo, mock_hasher, mock_audit_log_repo)
     mock_user_repo.get_by_id.return_value = dummy_user
     mock_hasher.verify.return_value = False
 
@@ -107,18 +128,22 @@ async def test_change_password_fails_if_wrong_old_password(
 
 
 @pytest.mark.asyncio
-async def test_delete_user_success(mock_user_repo, dummy_user):
-    usecase = DeleteUserUseCase(mock_user_repo)
+async def test_delete_user_success(
+    mock_user_repo, mock_audit_log_repo, dummy_actor, dummy_user
+):
+    usecase = DeleteUserUseCase(mock_user_repo, mock_audit_log_repo)
     mock_user_repo.get_by_id.return_value = dummy_user
 
-    await usecase.execute(dummy_user.id)
+    await usecase.execute(actor=dummy_actor, user_id=dummy_user.id)
 
     assert dummy_user.deleted_at is not None
     mock_user_repo.save.assert_called_once()
+    mock_audit_log_repo.save.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_search_users_paginated(mock_user_repo, dummy_user):
+
     usecase = SearchUsersUseCase(mock_user_repo)
     mock_user_repo.search.return_value = [dummy_user]
     mock_user_repo.count_search.return_value = 1

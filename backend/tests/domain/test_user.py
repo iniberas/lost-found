@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from app.domain.entities.user import Admin, User
+from app.domain.entities.user import Admin, SuperAdmin, User
 from app.domain.exceptions import StateTransitionError, ValidationError
 
 
@@ -258,7 +258,7 @@ def test_update_user_fails_if_deleted(method_name, valid_arg):
         getattr(user, method_name)(valid_arg)
 
 
-def test_delete_user_sets_deleted_at_and_is_idempotent_on_second_call():
+def test_delete_user_sets_deleted_at():
     user = make_user()
     user.delete()
 
@@ -366,3 +366,36 @@ def test_new_admin_assigns_uuid_and_timestamps():
     assert admin.name == "Admin"
     assert admin.email == "admin@example.com"
     assert admin.phone_number == "+6281234567891"
+
+
+def test_superadmin_is_instance_of_user():
+    superadmin = SuperAdmin(
+        id=uuid4(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        name="Super Admin",
+        email="superadmin@example.com",
+        phone_number="+6281234567892",
+        password_hash="hashed_secret",
+    )
+    assert isinstance(superadmin, User)
+    assert isinstance(superadmin, SuperAdmin)
+
+
+def test_new_superadmin_assigns_uuid_and_timestamps():
+    superadmin = SuperAdmin.new_superadmin(
+        name="Super Admin",
+        email="superadmin@example.com",
+        phone_number="+6281234567892",
+        password_hash="hashed_secret",
+    )
+
+    assert isinstance(superadmin.id, __import__("uuid").UUID)
+    assert isinstance(superadmin, SuperAdmin)
+    assert isinstance(superadmin, Admin)
+    assert isinstance(superadmin, User)
+    assert superadmin.created_at.tzinfo is not None
+    assert superadmin.updated_at == superadmin.created_at
+    assert superadmin.name == "Super Admin"
+    assert superadmin.email == "superadmin@example.com"
+    assert superadmin.phone_number == "+6281234567892"

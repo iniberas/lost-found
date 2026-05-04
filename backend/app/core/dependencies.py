@@ -3,7 +3,11 @@ from datetime import datetime
 from typing import List, Optional
 
 from app.core.config import settings
-from app.domain.entities.user import Admin, User
+from app.domain.entities.user import Admin, SuperAdmin, User
+from app.domain.use_cases.audit_log import (
+    GetAuditLogByIdUseCase,
+    SearchAuditLogsUseCase,
+)
 from app.domain.use_cases.auth import (
     LoginUserUseCase,
     RefreshTokenUseCase,
@@ -14,6 +18,13 @@ from app.domain.use_cases.category import (
     DeleteCategoryUseCase,
     SearchCategoriesUseCase,
     UpdateCategoryUseCase,
+)
+from app.domain.use_cases.contact_request import (
+    ApproveContactRequestUseCase,
+    CancelContactRequestUseCase,
+    CreateContactRequestUseCase,
+    RejectContactRequestUseCase,
+    SearchContactRequestsUseCase,
 )
 from app.domain.use_cases.proof import CreateProofUseCase, GetProofByIdUseCase
 from app.domain.use_cases.report import (
@@ -34,8 +45,18 @@ from app.domain.use_cases.report import (
     UpdateFoundReportUseCase,
     UpdateLostReportUseCase,
 )
+from app.domain.use_cases.storage_location import (
+    ActivateStorageLocationUseCase,
+    CreateStorageLocationUseCase,
+    DeleteStorageLocationUseCase,
+    GetStorageLocationByIdUseCase,
+    SearchStorageLocationsUseCase,
+    UpdateStorageLocationUseCase,
+)
 from app.domain.use_cases.user import (
     ChangePasswordUseCase,
+    CreateAdminUseCase,
+    CreateSuperAdminUseCase,
     DeleteUserUseCase,
     GetUserByEmailUseCase,
     GetUserByIdUseCase,
@@ -43,21 +64,27 @@ from app.domain.use_cases.user import (
     UpdateUserUseCase,
 )
 from app.infrastructure.database.session import get_session
+from app.infrastructure.repositories.audit_log import AuditLogRepository
 from app.infrastructure.repositories.category import CategoryRepository
+from app.infrastructure.repositories.contact_request import ContactRequestRepository
 from app.infrastructure.repositories.proof import ProofRepository
 from app.infrastructure.repositories.report import (
     FoundReportRepository,
     LostReportRepository,
 )
+from app.infrastructure.repositories.storage_location import StorageLocationRepository
 from app.infrastructure.repositories.user import UserRepository
 from app.infrastructure.services.auth import JWTTokenService, PasslibHasher
 from app.infrastructure.services.storage import StorageService
+from app.schemas.admin import (
+    AdminCreateHandOverReportRequest,
+    AdminUpdateFoundReportRequest,
+)
 from app.schemas.category import CreateCategoryRequest, UpdateCategoryRequest
+from app.schemas.point import PointSchema
 from app.schemas.report import (
     CreateFoundReportRequest,
-    CreateHandOverReportRequest,
     CreateLostReportRequest,
-    PointSchema,
     ResolveFoundReportRequest,
     UpdateFoundReportRequest,
     UpdateLostReportRequest,
@@ -122,6 +149,24 @@ async def get_found_report_repo(
     return FoundReportRepository(session)
 
 
+async def get_storage_location_repo(
+    session: AsyncSession = Depends(get_session),
+) -> StorageLocationRepository:
+    return StorageLocationRepository(session)
+
+
+async def get_contact_request_repo(
+    session: AsyncSession = Depends(get_session),
+) -> ContactRequestRepository:
+    return ContactRequestRepository(session)
+
+
+async def get_audit_log_repo(
+    session: AsyncSession = Depends(get_session),
+) -> AuditLogRepository:
+    return AuditLogRepository(session)
+
+
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     user_repo: UserRepository = Depends(get_user_repo),
@@ -151,9 +196,20 @@ async def get_current_user(
 
 
 async def get_current_admin(current_user: User = Depends(get_current_user)) -> Admin:
-    if not isinstance(current_user, Admin):
+    if not isinstance(current_user, Admin) and not isinstance(current_user, SuperAdmin):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+        )
+    return current_user
+
+
+async def get_current_superadmin(
+    current_user: User = Depends(get_current_user),
+) -> SuperAdmin:
+    if not isinstance(current_user, SuperAdmin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SuperAdmin privileges required",
         )
     return current_user
 
@@ -182,14 +238,16 @@ def get_refresh_use_case(
 
 def get_create_category_use_case(
     repo: CategoryRepository = Depends(get_category_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> CreateCategoryUseCase:
-    return CreateCategoryUseCase(repo)
+    return CreateCategoryUseCase(repo, audit_log_repo)
 
 
 def get_update_category_use_case(
     repo: CategoryRepository = Depends(get_category_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> UpdateCategoryUseCase:
-    return UpdateCategoryUseCase(repo)
+    return UpdateCategoryUseCase(repo, audit_log_repo)
 
 
 def get_search_categories_use_case(
@@ -200,8 +258,9 @@ def get_search_categories_use_case(
 
 def get_delete_category_use_case(
     repo: CategoryRepository = Depends(get_category_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> DeleteCategoryUseCase:
-    return DeleteCategoryUseCase(repo)
+    return DeleteCategoryUseCase(repo, audit_log_repo)
 
 
 def get_create_proof_use_case(
@@ -221,16 +280,18 @@ def get_create_lost_report_use_case(
     report_repo: LostReportRepository = Depends(get_lost_report_repo),
     category_repo: CategoryRepository = Depends(get_category_repo),
     storage: StorageService = Depends(get_storage_service),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> CreateLostReportUseCase:
-    return CreateLostReportUseCase(report_repo, category_repo, storage)
+    return CreateLostReportUseCase(report_repo, category_repo, storage, audit_log_repo)
 
 
 def get_update_lost_report_use_case(
     report_repo: LostReportRepository = Depends(get_lost_report_repo),
     category_repo: CategoryRepository = Depends(get_category_repo),
     storage: StorageService = Depends(get_storage_service),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> UpdateLostReportUseCase:
-    return UpdateLostReportUseCase(report_repo, category_repo, storage)
+    return UpdateLostReportUseCase(report_repo, category_repo, storage, audit_log_repo)
 
 
 def get_lost_report_by_id_use_case(
@@ -247,38 +308,48 @@ def get_search_lost_reports_use_case(
 
 def get_resolve_lost_report_use_case(
     repo: LostReportRepository = Depends(get_lost_report_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> ResolveLostReportUseCase:
-    return ResolveLostReportUseCase(repo)
+    return ResolveLostReportUseCase(repo, audit_log_repo)
 
 
 def get_delete_lost_report_use_case(
     repo: LostReportRepository = Depends(get_lost_report_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> DeleteLostReportUseCase:
-    return DeleteLostReportUseCase(repo)
+    return DeleteLostReportUseCase(repo, audit_log_repo)
 
 
 def get_create_found_report_use_case(
     report_repo: FoundReportRepository = Depends(get_found_report_repo),
     category_repo: CategoryRepository = Depends(get_category_repo),
     storage: StorageService = Depends(get_storage_service),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> CreateFoundReportUseCase:
-    return CreateFoundReportUseCase(report_repo, category_repo, storage)
+    return CreateFoundReportUseCase(report_repo, category_repo, storage, audit_log_repo)
 
 
 def get_create_hand_over_report_use_case(
     report_repo: FoundReportRepository = Depends(get_found_report_repo),
     category_repo: CategoryRepository = Depends(get_category_repo),
     storage: StorageService = Depends(get_storage_service),
+    storage_location_repo: StorageLocationRepository = Depends(
+        get_storage_location_repo
+    ),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> CreateHandOverReportUseCase:
-    return CreateHandOverReportUseCase(report_repo, category_repo, storage)
+    return CreateHandOverReportUseCase(
+        report_repo, category_repo, storage, storage_location_repo, audit_log_repo
+    )
 
 
 def get_update_found_report_use_case(
     report_repo: FoundReportRepository = Depends(get_found_report_repo),
     category_repo: CategoryRepository = Depends(get_category_repo),
     storage: StorageService = Depends(get_storage_service),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> UpdateFoundReportUseCase:
-    return UpdateFoundReportUseCase(report_repo, category_repo, storage)
+    return UpdateFoundReportUseCase(report_repo, category_repo, storage, audit_log_repo)
 
 
 def get_found_report_by_id_use_case(
@@ -297,21 +368,29 @@ def get_resolve_found_report_use_case(
     report_repo: FoundReportRepository = Depends(get_found_report_repo),
     proof_repo: ProofRepository = Depends(get_proof_repo),
     storage: StorageService = Depends(get_storage_service),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> ResolveFoundReportUseCase:
-    return ResolveFoundReportUseCase(report_repo, proof_repo, storage)
+    return ResolveFoundReportUseCase(report_repo, proof_repo, storage, audit_log_repo)
 
 
 def get_hand_over_to_admin_use_case(
     report_repo: FoundReportRepository = Depends(get_found_report_repo),
     user_repo: UserRepository = Depends(get_user_repo),
+    storage_location_repo: StorageLocationRepository = Depends(
+        get_storage_location_repo
+    ),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> HandOverToAdminUseCase:
-    return HandOverToAdminUseCase(report_repo, user_repo)
+    return HandOverToAdminUseCase(
+        report_repo, user_repo, storage_location_repo, audit_log_repo
+    )
 
 
 def get_delete_found_report_use_case(
     repo: FoundReportRepository = Depends(get_found_report_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> DeleteFoundReportUseCase:
-    return DeleteFoundReportUseCase(repo)
+    return DeleteFoundReportUseCase(repo, audit_log_repo)
 
 
 def get_potential_found_reports_use_case(
@@ -326,6 +405,166 @@ def get_potential_lost_reports_use_case(
     found_repo: FoundReportRepository = Depends(get_found_report_repo),
 ) -> FindPotentialLostReportsUseCase:
     return FindPotentialLostReportsUseCase(lost_repo, found_repo)
+
+
+def get_user_by_id_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> GetUserByIdUseCase:
+    return GetUserByIdUseCase(repo)
+
+
+def get_user_by_email_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> GetUserByEmailUseCase:
+    return GetUserByEmailUseCase(repo)
+
+
+def get_update_user_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> UpdateUserUseCase:
+    return UpdateUserUseCase(repo, audit_log_repo)
+
+
+def get_change_password_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+    hasher: PasslibHasher = Depends(get_hasher),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> ChangePasswordUseCase:
+    return ChangePasswordUseCase(repo, hasher, audit_log_repo)
+
+
+def get_search_users_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+) -> SearchUsersUseCase:
+    return SearchUsersUseCase(repo)
+
+
+def get_delete_user_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> DeleteUserUseCase:
+    return DeleteUserUseCase(repo, audit_log_repo)
+
+
+def get_create_admin_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+    hasher: PasslibHasher = Depends(get_hasher),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> CreateAdminUseCase:
+    return CreateAdminUseCase(repo, hasher, audit_log_repo)
+
+
+def get_create_superadmin_use_case(
+    repo: UserRepository = Depends(get_user_repo),
+    hasher: PasslibHasher = Depends(get_hasher),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> CreateSuperAdminUseCase:
+    return CreateSuperAdminUseCase(repo, hasher, audit_log_repo)
+
+
+def get_create_storage_location_use_case(
+    repo: StorageLocationRepository = Depends(get_storage_location_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> CreateStorageLocationUseCase:
+    return CreateStorageLocationUseCase(repo, audit_log_repo)
+
+
+def get_update_storage_location_use_case(
+    repo: StorageLocationRepository = Depends(get_storage_location_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> UpdateStorageLocationUseCase:
+    return UpdateStorageLocationUseCase(repo, audit_log_repo)
+
+
+def get_delete_storage_location_use_case(
+    repo: StorageLocationRepository = Depends(get_storage_location_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> DeleteStorageLocationUseCase:
+    return DeleteStorageLocationUseCase(repo, audit_log_repo)
+
+
+def get_activate_storage_location_use_case(
+    repo: StorageLocationRepository = Depends(get_storage_location_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> ActivateStorageLocationUseCase:
+    return ActivateStorageLocationUseCase(repo, audit_log_repo)
+
+
+def get_search_storage_locations_use_case(
+    repo: StorageLocationRepository = Depends(get_storage_location_repo),
+) -> SearchStorageLocationsUseCase:
+    return SearchStorageLocationsUseCase(repo)
+
+
+def get_storage_location_by_id_use_case(
+    repo: StorageLocationRepository = Depends(get_storage_location_repo),
+) -> GetStorageLocationByIdUseCase:
+    return GetStorageLocationByIdUseCase(repo)
+
+
+def get_create_contact_request_use_case(
+    request_repo: ContactRequestRepository = Depends(get_contact_request_repo),
+    user_repo: UserRepository = Depends(get_user_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> CreateContactRequestUseCase:
+    return CreateContactRequestUseCase(request_repo, user_repo, audit_log_repo)
+
+
+def get_approve_contact_request_use_case(
+    repo: ContactRequestRepository = Depends(get_contact_request_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> ApproveContactRequestUseCase:
+    return ApproveContactRequestUseCase(repo, audit_log_repo)
+
+
+def get_reject_contact_request_use_case(
+    repo: ContactRequestRepository = Depends(get_contact_request_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> RejectContactRequestUseCase:
+    return RejectContactRequestUseCase(repo, audit_log_repo)
+
+
+def get_cancel_contact_request_use_case(
+    repo: ContactRequestRepository = Depends(get_contact_request_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> CancelContactRequestUseCase:
+    return CancelContactRequestUseCase(repo, audit_log_repo)
+
+
+def get_search_contact_requests_use_case(
+    repo: ContactRequestRepository = Depends(get_contact_request_repo),
+) -> SearchContactRequestsUseCase:
+    return SearchContactRequestsUseCase(repo)
+
+
+def get_audit_log_by_id_use_case(
+    repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> GetAuditLogByIdUseCase:
+    return GetAuditLogByIdUseCase(repo)
+
+
+def get_search_audit_logs_use_case(
+    repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> SearchAuditLogsUseCase:
+    return SearchAuditLogsUseCase(repo)
+
+
+def get_register_user_form(
+    name: str = Form(...),
+    email: EmailStr = Form(...),
+    phone_number: str = Form(...),
+    password: str = Form(...),
+) -> RegisterUserRequest:
+    return RegisterUserRequest(
+        name=name, email=email, phone_number=phone_number, password=password
+    )
+
+
+def get_login_user_form(
+    email: EmailStr = Form(...), password: str = Form(...)
+) -> LoginUserRequest:
+    return LoginUserRequest(email=email, password=password)
 
 
 def get_update_user_form(
@@ -406,15 +645,16 @@ def get_create_hand_over_report_form(
     finder_name: str = Form(...),
     finder_contact: str = Form(...),
     category_ids: List[uuid.UUID] = Form(...),
+    storage_location_id: uuid.UUID = Form(...),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
-) -> CreateHandOverReportRequest:
+) -> AdminCreateHandOverReportRequest:
     location_point = (
         PointSchema(latitude=latitude, longitude=longitude)
         if latitude is not None and longitude is not None
         else None
     )
-    return CreateHandOverReportRequest(
+    return AdminCreateHandOverReportRequest(
         title=title,
         description=description,
         location_name=location_name,
@@ -422,6 +662,7 @@ def get_create_hand_over_report_form(
         category_ids=category_ids,
         finder_name=finder_name,
         finder_contact=finder_contact,
+        storage_location_id=storage_location_id,
         location_point=location_point,
     )
 
@@ -482,43 +723,37 @@ def get_update_found_report_form(
     )
 
 
+def get_admin_update_found_report_form(
+    title: Optional[str] = Form(default=None),
+    description: Optional[str] = Form(default=None),
+    incident_date: Optional[datetime] = Form(default=None),
+    location_name: Optional[str] = Form(default=None),
+    category_ids: Optional[List[uuid.UUID]] = Form(default=None),
+    photos_to_remove: Optional[List[str]] = Form(default=None),
+    finder_name: Optional[str] = Form(default=None),
+    finder_contact: Optional[str] = Form(default=None),
+    storage_location_id: Optional[uuid.UUID] = Form(default=None),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
+) -> AdminUpdateFoundReportRequest:
+    location_point = (
+        PointSchema(latitude=latitude, longitude=longitude)
+        if latitude is not None and longitude is not None
+        else None
+    )
+    return AdminUpdateFoundReportRequest(
+        title=title,
+        description=description,
+        incident_date=incident_date,
+        location_name=location_name,
+        category_ids=category_ids,
+        photos_to_remove=photos_to_remove,
+        finder_name=finder_name,
+        finder_contact=finder_contact,
+        storage_location_id=storage_location_id,
+        location_point=location_point,
+    )
+
+
 def get_resolve_found_report_form(notes: str = Form(...)) -> ResolveFoundReportRequest:
     return ResolveFoundReportRequest(notes=notes)
-
-
-def get_user_by_id_use_case(
-    repo: UserRepository = Depends(get_user_repo),
-) -> GetUserByIdUseCase:
-    return GetUserByIdUseCase(repo)
-
-
-def get_user_by_email_use_case(
-    repo: UserRepository = Depends(get_user_repo),
-) -> GetUserByEmailUseCase:
-    return GetUserByEmailUseCase(repo)
-
-
-def get_update_user_use_case(
-    repo: UserRepository = Depends(get_user_repo),
-) -> UpdateUserUseCase:
-    return UpdateUserUseCase(repo)
-
-
-def get_change_password_use_case(
-    repo: UserRepository = Depends(get_user_repo),
-    hasher: PasslibHasher = Depends(get_hasher),
-) -> ChangePasswordUseCase:
-    return ChangePasswordUseCase(repo, hasher)
-
-
-def get_search_users_use_case(
-    repo: UserRepository = Depends(get_user_repo),
-) -> SearchUsersUseCase:
-    return SearchUsersUseCase(repo)
-
-
-def get_delete_user_use_case(
-    repo: UserRepository = Depends(get_user_repo),
-) -> DeleteUserUseCase:
-    return DeleteUserUseCase(repo)
-

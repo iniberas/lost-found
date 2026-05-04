@@ -95,6 +95,10 @@ class User:
     def password_hash(self) -> str:
         return self._password_hash
 
+    @property
+    def role(self) -> str:
+        return "user"
+
     def verify_password(self, plain_password: str, hasher) -> bool:
         return hasher.verify(plain_password, self._password_hash)
 
@@ -160,7 +164,9 @@ class User:
 
     def _validate_name(self, name: str):
         if len(name) < self.NAME_MIN_LEN:
-            raise ValidationError(f"Name must be at least {self.NAME_MIN_LEN} characters long")
+            raise ValidationError(
+                f"Name must be at least {self.NAME_MIN_LEN} characters long"
+            )
         if len(name) > self.NAME_MAX_LEN:
             raise ValidationError(f"Name cannot exceed {self.NAME_MAX_LEN} characters")
         if name.isdigit():
@@ -189,3 +195,23 @@ class Admin(User):
         updated_at = created_at
 
         return cls(id, created_at, updated_at, name, email, phone_number, password_hash)
+
+    @property
+    def role(self) -> str:
+        return "user"
+
+
+class SuperAdmin(Admin):
+    @classmethod
+    def new_superadmin(
+        cls, name: str, email: str, phone_number: str, password_hash: str
+    ) -> Self:
+        id = uuid.uuid4()
+        created_at = datetime.now(timezone.utc)
+        updated_at = created_at
+
+        return cls(id, created_at, updated_at, name, email, phone_number, password_hash)
+
+    @property
+    def role(self) -> str:
+        return "superadmin"

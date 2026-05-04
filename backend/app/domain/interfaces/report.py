@@ -84,6 +84,7 @@ class IFoundReportRepository(ABC):
         location_point: Optional[Point] = None,
         location_radius: Optional[float] = None,
         found_status: Optional[FoundStatus] = None,
+        storage_location_id: Optional[uuid.UUID] = None, 
         sort_by: str = "created_at",  # created_at, distance, title
         sort_order: str = "desc",  # asc, desc
         limit: int = 20,
@@ -103,6 +104,7 @@ class IFoundReportRepository(ABC):
         location_point: Optional[Point] = None,
         location_radius: Optional[float] = None,
         found_status: Optional[FoundStatus] = None,
+        storage_location_id: Optional[uuid.UUID] = None, 
     ) -> int:
         pass
 

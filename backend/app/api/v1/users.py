@@ -17,20 +17,23 @@ from app.domain.use_cases.user import (
     GetUserByIdUseCase,
     UpdateUserUseCase,
 )
-from app.schemas.user import ChangePasswordRequest, UpdateUserRequest, UserResponse
+from app.schemas.user import (
+    ChangePasswordRequest,
+    UpdateUserRequest,
+    UserDetailResponse,
+    UserResponse,
+)
 from fastapi import APIRouter, Depends, HTTPException, status
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
-# GET PROFILE (Self)
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserDetailResponse)
 async def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-# UPDATE PROFILE (Self)
-@router.put("/me", response_model=UserResponse)
+@router.put("/me", response_model=UserDetailResponse)
 async def update_profile(
     body: UpdateUserRequest = Depends(get_update_user_form),
     current_user: User = Depends(get_current_user),
@@ -48,7 +51,6 @@ async def update_profile(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-# CHANGE PASSWORD (Self)
 @router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
     body: ChangePasswordRequest = Depends(get_change_password_form),
@@ -65,14 +67,13 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-# DELETE USER (Self or Admin)
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     use_case: DeleteUserUseCase = Depends(get_delete_user_use_case),
 ):
-    # Logika proteksi: Hanya admin atau user itu sendiri yang bisa hapus
+
     if not isinstance(current_user, Admin) and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
@@ -84,7 +85,6 @@ async def delete_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-# GET USER BY ID (Admin Only)
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: uuid.UUID,

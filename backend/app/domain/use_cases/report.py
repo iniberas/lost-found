@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+from app.domain.entities.audit_log import ActionType, AuditLog, EntityType
 from app.domain.entities.point import Point
 from app.domain.entities.proof import Proof
 from app.domain.entities.report import (
@@ -12,10 +13,12 @@ from app.domain.entities.report import (
     ReportStatus,
 )
 from app.domain.entities.user import Admin, User
+from app.domain.interfaces.audit_log import IAuditLogRepository
 from app.domain.interfaces.category import ICategoryRepository
 from app.domain.interfaces.proof import IProofRepository
 from app.domain.interfaces.report import IFoundReportRepository, ILostReportRepository
 from app.domain.interfaces.storage import IStorageService
+from app.domain.interfaces.storage_location import IStorageLocationRepository
 from app.domain.interfaces.user import IUserRepository
 from app.schemas.pagination import Paginated
 
@@ -26,10 +29,12 @@ class CreateLostReportUseCase:
         report_repo: ILostReportRepository,
         category_repo: ICategoryRepository,
         storage_service: IStorageService,
+        audit_log_repo: IAuditLogRepository,
     ):
         self.report_repo = report_repo
         self.category_repo = category_repo
         self.storage_service = storage_service
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
         self,
@@ -44,9 +49,7 @@ class CreateLostReportUseCase:
     ) -> LostReport:
         categories = await self.category_repo.get_by_ids(category_ids)
 
-        photos = (
-            self.storage_service.save_files(photo_files) if photo_files else []
-        )
+        photos = self.storage_service.save_files(photo_files) if photo_files else []
 
         report = LostReport.new_lost_report(
             reporter=reporter,
@@ -58,7 +61,18 @@ class CreateLostReportUseCase:
             location_point=location_point,
             photos=photos,
         )
+
         await self.report_repo.save(report)
+
+        log = AuditLog.new_log(
+            actor_id=reporter.id,
+            entity_type=EntityType.LOST_REPORT,
+            entity_id=report.id,
+            action=ActionType.CREATE,
+            changes={"title": title},
+        )
+        await self.audit_log_repo.save(log)
+
         return report
 
 
@@ -68,10 +82,12 @@ class CreateFoundReportUseCase:
         report_repo: IFoundReportRepository,
         category_repo: ICategoryRepository,
         storage_service: IStorageService,
+        audit_log_repo: IAuditLogRepository,
     ):
         self.report_repo = report_repo
         self.category_repo = category_repo
         self.storage_service = storage_service
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
         self,
@@ -98,20 +114,37 @@ class CreateFoundReportUseCase:
             photos=photos,
             location_point=location_point,
         )
+
         await self.report_repo.save(report)
+
+        log = AuditLog.new_log(
+            actor_id=reporter.id,
+            entity_type=EntityType.FOUND_REPORT,
+            entity_id=report.id,
+            action=ActionType.CREATE,
+            changes={"title": title},
+        )
+        await self.audit_log_repo.save(log)
+
         return report
 
 
 class CreateHandOverReportUseCase:
+    """Use case ketika satpam (Admin) yang langsung membuat laporan barang temuan."""
+
     def __init__(
         self,
         report_repo: IFoundReportRepository,
         category_repo: ICategoryRepository,
         storage_service: IStorageService,
+        storage_location_repo: IStorageLocationRepository,
+        audit_log_repo: IAuditLogRepository,
     ):
         self.report_repo = report_repo
         self.category_repo = category_repo
         self.storage_service = storage_service
+        self.storage_location_repo = storage_location_repo
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
         self,
@@ -124,9 +157,14 @@ class CreateHandOverReportUseCase:
         photo_files: List[Tuple[bytes, str]],
         finder_name: str,
         finder_contact: str,
+        storage_location_id: uuid.UUID,
         location_point: Optional[Point] = None,
     ) -> FoundReport:
         categories = await self.category_repo.get_by_ids(category_ids)
+
+        location = await self.storage_location_repo.get_by_id(storage_location_id)
+        if not location:
+            raise ValueError("Storage location not found")
 
         photos = self.storage_service.save_files(photo_files)
 
@@ -140,9 +178,20 @@ class CreateHandOverReportUseCase:
             photos=photos,
             finder_name=finder_name,
             finder_contact=finder_contact,
+            storage_location=location,
             location_point=location_point,
         )
         await self.report_repo.save(report)
+
+        log = AuditLog.new_log(
+            actor_id=reporter.id,
+            entity_type=EntityType.FOUND_REPORT,
+            entity_id=report.id,
+            action=ActionType.CREATE,
+            changes={"title": title, "storage_location_id": str(storage_location_id)},
+        )
+        await self.audit_log_repo.save(log)
+
         return report
 
 
@@ -238,6 +287,7 @@ class SearchFoundReportsUseCase:
         location_point: Optional[Point] = None,
         location_radius: Optional[float] = None,
         found_status: Optional[FoundStatus] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> Paginated:
@@ -252,6 +302,7 @@ class SearchFoundReportsUseCase:
             location_point,
             location_radius,
             found_status,
+            storage_location_id,
             sort_by,
             sort_order,
             limit=limit,
@@ -267,6 +318,7 @@ class SearchFoundReportsUseCase:
             location_point,
             location_radius,
             found_status,
+            storage_location_id,
         )
         return Paginated(
             items=items,
@@ -283,10 +335,12 @@ class UpdateLostReportUseCase:
         report_repo: ILostReportRepository,
         category_repo: ICategoryRepository,
         storage_service: IStorageService,
+        audit_log_repo: IAuditLogRepository,
     ):
         self.report_repo = report_repo
         self.category_repo = category_repo
         self.storage_service = storage_service
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
         self,
@@ -304,7 +358,7 @@ class UpdateLostReportUseCase:
         report = await self.report_repo.get_by_id(report_id)
         if not report:
             raise ValueError("Lost report not found")
-        if report.reporter.id != user.id:
+        if report.reporter.id != user.id and not isinstance(user, Admin):
             raise PermissionError("You can only edit your own reports")
 
         if title is not None:
@@ -331,6 +385,15 @@ class UpdateLostReportUseCase:
                 final_photos = [p for p in final_photos if p not in photos_to_remove]
             report.update_photos(final_photos)
             await self.report_repo.save(report)
+
+            log = AuditLog.new_log(
+                actor_id=user.id,
+                entity_type=EntityType.LOST_REPORT,
+                entity_id=report.id,
+                action=ActionType.UPDATE,
+            )
+            await self.audit_log_repo.save(log)
+
         except Exception as e:
             for photo in saved_new_photos:
                 try:
@@ -342,7 +405,7 @@ class UpdateLostReportUseCase:
         if photos_to_remove:
             for path in photos_to_remove:
                 try:
-                    self.storage_servicedelete_file(path)
+                    self.storage_service.delete_file(path)
                 except Exception:
                     pass
 
@@ -355,13 +418,16 @@ class UpdateFoundReportUseCase:
         report_repo: IFoundReportRepository,
         category_repo: ICategoryRepository,
         storage_service: IStorageService,
+        audit_log_repo: IAuditLogRepository,
     ):
         self.report_repo = report_repo
         self.category_repo = category_repo
         self.storage_service = storage_service
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
         self,
+        actor: User,
         user: User,
         report_id: uuid.UUID,
         title: Optional[str] = None,
@@ -378,7 +444,7 @@ class UpdateFoundReportUseCase:
         report = await self.report_repo.get_by_id(report_id)
         if not report:
             raise ValueError("Found report not found")
-        if report.reporter.id != user.id:
+        if report.reporter.id != user.id and not isinstance(user, Admin):
             raise PermissionError("You can only edit your own reports")
 
         if title is not None:
@@ -409,6 +475,15 @@ class UpdateFoundReportUseCase:
                 final_photos = [p for p in final_photos if p not in photos_to_remove]
             report.update_photos(final_photos)
             await self.report_repo.save(report)
+
+            log = AuditLog.new_log(
+                actor_id=user.id,
+                entity_type=EntityType.FOUND_REPORT,
+                entity_id=report.id,
+                action=ActionType.UPDATE,
+            )
+            await self.audit_log_repo.save(log)
+
         except Exception as e:
             for photo in saved_new_photos:
                 try:
@@ -420,7 +495,7 @@ class UpdateFoundReportUseCase:
         if photos_to_remove:
             for path in photos_to_remove:
                 try:
-                    self.storage_servicedelete_file(path)
+                    self.storage_service.delete_file(path)
                 except Exception:
                     pass
 
@@ -428,17 +503,31 @@ class UpdateFoundReportUseCase:
 
 
 class ResolveLostReportUseCase:
-    def __init__(self, report_repo: ILostReportRepository):
+    def __init__(
+        self, report_repo: ILostReportRepository, audit_log_repo: IAuditLogRepository
+    ):
         self.report_repo = report_repo
+        self.audit_log_repo = audit_log_repo
 
     async def execute(self, report_id: uuid.UUID, user: User) -> LostReport:
         report = await self.report_repo.get_by_id(report_id)
         if not report:
             raise ValueError("Lost report not found")
-        if report.reporter.id != user.id:
+        if report.reporter.id != user.id and not isinstance(user, Admin):
             raise PermissionError("You can only resolve your own reports")
+
         report.confirm_found()
         await self.report_repo.save(report)
+
+        log = AuditLog.new_log(
+            actor_id=user.id,
+            entity_type=EntityType.LOST_REPORT,
+            entity_id=report.id,
+            action=ActionType.STATUS_CHANGE,
+            changes={"status": "resolved"},
+        )
+        await self.audit_log_repo.save(log)
+
         return report
 
 
@@ -448,10 +537,12 @@ class ResolveFoundReportUseCase:
         report_repo: IFoundReportRepository,
         proof_repo: IProofRepository,
         storage_service: IStorageService,
+        audit_log_repo: IAuditLogRepository,
     ):
         self.report_repo = report_repo
         self.proof_repo = proof_repo
         self.storage_service = storage_service
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
         self,
@@ -463,16 +554,28 @@ class ResolveFoundReportUseCase:
         report = await self.report_repo.get_by_id(report_id)
         if not report:
             raise ValueError("Found report not found")
-        if report.reporter.id != user.id:
-            raise PermissionError("You can only resolve your own reports")
+
+        if report.holder.id != user.id:
+            raise PermissionError("Only the current holder can resolve this report")
 
         photos: List[str] = []
         try:
             photos = self.storage_service.save_files(photo_files)
             proof = Proof.new_proof(photos=photos, notes=notes)
             report.confirm_return(proof)
+
             await self.proof_repo.save(proof)
             await self.report_repo.save(report)
+
+            log = AuditLog.new_log(
+                actor_id=user.id,
+                entity_type=EntityType.FOUND_REPORT,
+                entity_id=report.id,
+                action=ActionType.STATUS_CHANGE,
+                changes={"found_status": "returned_to_owner"},
+            )
+            await self.audit_log_repo.save(log)
+
         except Exception as e:
             for photo in photos:
                 try:
@@ -485,54 +588,113 @@ class ResolveFoundReportUseCase:
 
 
 class HandOverToAdminUseCase:
-    def __init__(self, report_repo: IFoundReportRepository, user_repo: IUserRepository):
+    """Use case ketika Mahasiswa menyerahkan barang ke Admin di pos satpam"""
+
+    def __init__(
+        self,
+        report_repo: IFoundReportRepository,
+        user_repo: IUserRepository,
+        storage_location_repo: IStorageLocationRepository,
+        audit_log_repo: IAuditLogRepository,
+    ):
         self.report_repo = report_repo
         self.user_repo = user_repo
+        self.storage_location_repo = storage_location_repo
+        self.audit_log_repo = audit_log_repo
 
     async def execute(
-        self, report_id: uuid.UUID, user: User, admin_id: uuid.UUID
+        self,
+        report_id: uuid.UUID,
+        user: User,
+        admin_id: uuid.UUID,
+        storage_location_id: uuid.UUID,  # Wajib milih mau ditaro mana
     ) -> FoundReport:
         report = await self.report_repo.get_by_id(report_id)
         if not report:
             raise ValueError("Found report not found")
-        if report.reporter.id != user.id:
-            raise PermissionError("You can only hand over your own reports")
+
+        if report.reporter.id != user.id and report.holder.id != user.id:
+            raise PermissionError("You don't have permission to hand over this item")
 
         admin = await self.user_repo.get_by_id(admin_id)
         if not admin or not isinstance(admin, Admin):
             raise ValueError("Target user is not an Admin or not found")
 
-        report.hand_over_to_admin(admin)
+        location = await self.storage_location_repo.get_by_id(storage_location_id)
+        if not location:
+            raise ValueError("Storage location not found")
+
+        old_holder_id = str(report.holder.id)
+
+        report.hand_over_to_admin(admin, location)
         await self.report_repo.save(report)
+
+        log = AuditLog.new_log(
+            actor_id=admin.id,
+            entity_type=EntityType.FOUND_REPORT,
+            entity_id=report.id,
+            action=ActionType.HANDOVER,
+            changes={
+                "from_user_id": old_holder_id,
+                "to_admin_id": str(admin.id),
+                "storage_location_id": str(location.id),
+            },
+        )
+        await self.audit_log_repo.save(log)
+
         return report
 
 
 class DeleteLostReportUseCase:
-    def __init__(self, repo: ILostReportRepository):
+    def __init__(
+        self, repo: ILostReportRepository, audit_log_repo: IAuditLogRepository
+    ):
         self.repo = repo
+        self.audit_log_repo = audit_log_repo
 
     async def execute(self, report_id: uuid.UUID, user: User) -> None:
         report = await self.repo.get_by_id(report_id)
         if not report:
             raise ValueError("Lost report not found")
-        if report.reporter.id != user.id:
+        if report.reporter.id != user.id and not isinstance(user, Admin):
             raise PermissionError("You can only delete your own reports")
+
         report.delete()
         await self.repo.save(report)
 
+        log = AuditLog.new_log(
+            actor_id=user.id,
+            entity_type=EntityType.LOST_REPORT,
+            entity_id=report.id,
+            action=ActionType.DELETE,
+        )
+        await self.audit_log_repo.save(log)
+
 
 class DeleteFoundReportUseCase:
-    def __init__(self, repo: IFoundReportRepository):
+    def __init__(
+        self, repo: IFoundReportRepository, audit_log_repo: IAuditLogRepository
+    ):
         self.repo = repo
+        self.audit_log_repo = audit_log_repo
 
     async def execute(self, report_id: uuid.UUID, user: User) -> None:
         report = await self.repo.get_by_id(report_id)
         if not report:
             raise ValueError("Found report not found")
-        if report.reporter.id != user.id:
+        if report.reporter.id != user.id and not isinstance(user, Admin):
             raise PermissionError("You can only delete your own reports")
+
         report.delete()
         await self.repo.save(report)
+
+        log = AuditLog.new_log(
+            actor_id=user.id,
+            entity_type=EntityType.FOUND_REPORT,
+            entity_id=report.id,
+            action=ActionType.DELETE,
+        )
+        await self.audit_log_repo.save(log)
 
 
 class FindPotentialFoundReportsUseCase:

@@ -18,34 +18,37 @@ from app.domain.use_cases.category import (
     SearchCategoriesUseCase,
     UpdateCategoryUseCase,
 )
-from app.schemas.category import (
-    CategoryResponse,
-    CreateCategoryRequest,
-    UpdateCategoryRequest,
+from app.schemas.admin import (
+    AdminCategoryResponse,
+    AdminCreateCategoryRequest,
+    AdminUpdateCategoryRequest,
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/categories")
 
 
-@router.get("/", response_model=List[CategoryResponse])
+@router.get("/", response_model=List[AdminCategoryResponse])
 async def search_categories(
     query: Optional[str] = Query(None),
     is_active: Optional[bool] = None,
     use_case: SearchCategoriesUseCase = Depends(get_search_categories_use_case),
 ):
     categories = await use_case.execute(query=query, is_active=is_active)
-    return [CategoryResponse.model_validate(c) for c in categories]
+    return [AdminCategoryResponse.model_validate(c) for c in categories]
 
 
-@router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=AdminCategoryResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_category(
-    body: CreateCategoryRequest = Depends(get_create_category_form),
+    body: AdminCreateCategoryRequest = Depends(get_create_category_form),
+    current_admin: Admin = Depends(get_current_admin),
     use_case: CreateCategoryUseCase = Depends(get_create_category_use_case),
 ):
     try:
-        category = await use_case.execute(name=body.name)
-        return CategoryResponse.model_validate(category)
+        category = await use_case.execute(actor=current_admin, name=body.name)
+        return AdminCategoryResponse.model_validate(category)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValidationError as e:
@@ -54,15 +57,15 @@ async def create_category(
         )
 
 
-@router.put("/{category_id}", response_model=CategoryResponse)
+@router.put("/{category_id}", response_model=AdminCategoryResponse)
 async def update_category(
     category_id: uuid.UUID,
-    body: UpdateCategoryRequest = Depends(get_update_category_form),
+    body: AdminUpdateCategoryRequest = Depends(get_update_category_form),
     use_case: UpdateCategoryUseCase = Depends(get_update_category_use_case),
 ):
     try:
         category = await use_case.execute(category_id=category_id, new_name=body.name)
-        return CategoryResponse.model_validate(category)
+        return AdminCategoryResponse.model_validate(category)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValidationError as e:
