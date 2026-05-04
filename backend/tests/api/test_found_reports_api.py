@@ -7,7 +7,6 @@ from app.core.dependencies import (
     get_create_found_report_use_case,
     get_delete_found_report_use_case,
     get_found_report_by_id_use_case,
-    get_hand_over_to_admin_use_case,
     get_potential_lost_reports_use_case,
     get_resolve_found_report_use_case,
     get_search_found_reports_use_case,
@@ -21,7 +20,7 @@ from app.domain.entities.report import (
     LostReport,
     ReportStatus,
 )
-from app.domain.entities.user import Admin, User
+from app.domain.entities.user import User
 from app.main import app
 from app.schemas.pagination import Paginated
 
@@ -42,22 +41,12 @@ def mock_create_uc():
 
 
 @pytest.fixture
-def mock_create_hand_over_uc():
-    return AsyncMock()
-
-
-@pytest.fixture
 def mock_update_uc():
     return AsyncMock()
 
 
 @pytest.fixture
 def mock_resolve_uc():
-    return AsyncMock()
-
-
-@pytest.fixture
-def mock_hand_over_admin_uc():
     return AsyncMock()
 
 
@@ -74,11 +63,6 @@ def mock_potential_matches_uc():
 @pytest.fixture
 def dummy_reporter():
     return User.new_user("John", "john@x.com", "+6201234567890", "hash")
-
-
-@pytest.fixture
-def dummy_admin():
-    return Admin.new_admin("Super", "admin@x.com", "+6201234567890", "hash")
 
 
 @pytest.fixture
@@ -225,30 +209,6 @@ def test_resolve_found_report_success(client, mock_resolve_uc, dummy_found_repor
     assert response.json()["report_status"] == ReportStatus.RESOLVED.value
     assert response.json()["found_status"] == FoundStatus.RETURNED_TO_OWNER.value
     mock_resolve_uc.execute.assert_called_once()
-
-
-def test_hand_over_to_admin_success(
-    client, mock_hand_over_admin_uc, dummy_found_report, dummy_admin
-):
-    dummy_found_report._update_found_status(FoundStatus.HELD_BY_ADMIN)
-
-    mock_hand_over_admin_uc.execute.return_value = dummy_found_report
-    app.dependency_overrides[get_hand_over_to_admin_use_case] = lambda: (
-        mock_hand_over_admin_uc
-    )
-
-    report_id = str(dummy_found_report.id)
-    admin_id = str(dummy_admin.id)
-
-    form_data = {"admin_id": admin_id}
-
-    response = client.post(
-        f"/api/v1/found-reports/{report_id}/hand_over-to-admin", data=form_data
-    )
-
-    assert response.status_code == 200
-    assert response.json()["found_status"] == FoundStatus.HELD_BY_ADMIN.value
-    mock_hand_over_admin_uc.execute.assert_called_once()
 
 
 def test_delete_found_report_success(client, mock_delete_uc):

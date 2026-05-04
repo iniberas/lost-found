@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from app.domain.entities.user import Admin, User
+from app.domain.entities.user import Admin, SuperAdmin, User
 from app.domain.interfaces.user import IUserRepository
 from app.infrastructure.database.models.user import UserModel, UserRole
 from sqlalchemy import func, or_, select
@@ -14,7 +14,9 @@ class UserRepository(IUserRepository):
         self.session = session
 
     def _to_entity(self, model: UserModel) -> User:
-        if model.role == UserRole.ADMIN:
+        if model.role == UserRole.SUPERADMIN:
+            cls = SuperAdmin
+        elif model.role == UserRole.ADMIN:
             cls = Admin
         else:
             cls = User
@@ -31,7 +33,12 @@ class UserRepository(IUserRepository):
         )
 
     def _to_model(self, user: User) -> UserModel:
-        role = UserRole.ADMIN if isinstance(user, Admin) else UserRole.USER
+        if isinstance(user, SuperAdmin):
+            role = UserRole.SUPERADMIN
+        elif isinstance(user, Admin):
+            role = UserRole.ADMIN
+        else:
+            role = UserRole.USER
 
         return UserModel(
             id=user.id,
@@ -71,6 +78,7 @@ class UserRepository(IUserRepository):
     async def search(
         self,
         query: Optional[str] = None,
+        role: Optional[str] = None,
         created_at_from: Optional[datetime] = None,
         created_at_to: Optional[datetime] = None,
         is_deleted: Optional[bool] = None,
@@ -81,7 +89,7 @@ class UserRepository(IUserRepository):
     ) -> List[User]:
         stmt = select(UserModel)
         stmt = self._apply_filters(
-            stmt, query, created_at_from, created_at_to, is_deleted
+            stmt, query, role, created_at_from, created_at_to, is_deleted
         )
         stmt = self._apply_sort(stmt, sort_by, sort_order)
         stmt = stmt.limit(limit).offset(offset)
@@ -91,23 +99,28 @@ class UserRepository(IUserRepository):
     async def count_search(
         self,
         query: Optional[str] = None,
+        role: Optional[str] = None,
         created_at_from: Optional[datetime] = None,
         created_at_to: Optional[datetime] = None,
         is_deleted: Optional[bool] = None,
     ) -> int:
         stmt = select(func.count()).select_from(UserModel)
         stmt = self._apply_filters(
-            stmt, query, created_at_from, created_at_to, is_deleted
+            stmt, query, role, created_at_from, created_at_to, is_deleted
         )
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
-    def _apply_filters(self, stmt, query, created_at_from, created_at_to, is_deleted):
+    def _apply_filters(
+        self, stmt, query, role, created_at_from, created_at_to, is_deleted
+    ):
         if query:
             like = f"%{query}%"
             stmt = stmt.where(
                 or_(UserModel.name.ilike(like), UserModel.email.ilike(like))
             )
+        if role:
+            stmt = stmt.where(UserModel.role == role)
         if created_at_from:
             stmt = stmt.where(UserModel.created_at >= created_at_from)
         if created_at_to:

@@ -12,18 +12,20 @@ from app.domain.entities.report import (
     LostReport,
     ReportStatus,
 )
+from app.domain.entities.storage_location import StorageLocation
 from app.infrastructure.database.models.category import CategoryModel
 from app.infrastructure.database.models.proof import ProofModel
+from app.infrastructure.database.models.storage_location import StorageLocationModel
 from app.infrastructure.repositories.report import (
     FoundReportRepository,
     LostReportRepository,
 )
 from app.infrastructure.repositories.user import UserRepository
+from geoalchemy2.elements import WKTElement
 
 
 @pytest_asyncio.fixture(scope="function")
 async def saved_dummy_user(db_session, dummy_user):
-
     repo = UserRepository(db_session)
     await repo.save(dummy_user)
     await db_session.commit()
@@ -32,7 +34,6 @@ async def saved_dummy_user(db_session, dummy_user):
 
 @pytest_asyncio.fixture(scope="function")
 async def saved_dummy_admin(db_session, dummy_admin):
-
     repo = UserRepository(db_session)
     await repo.save(dummy_admin)
     await db_session.commit()
@@ -41,7 +42,6 @@ async def saved_dummy_admin(db_session, dummy_admin):
 
 @pytest_asyncio.fixture(scope="function")
 async def saved_category(db_session):
-
     cat_id = uuid4()
     cat_model = CategoryModel(id=cat_id, name="Electronics", is_active=True)
     db_session.add(cat_model)
@@ -56,6 +56,33 @@ async def saved_category_2(db_session):
     db_session.add(cat_model)
     await db_session.commit()
     return Category(id=cat_id, name="Wallets", is_active=True)
+
+
+@pytest_asyncio.fixture(scope="function")
+async def saved_storage_location(db_session):
+    loc_id = uuid4()
+
+    geom = WKTElement("POINT(106.8166 -6.2000)", srid=4326)
+    loc_model = StorageLocationModel(
+        id=loc_id,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        name="Pos Satpam Utama",
+        description="Gerbang depan kampus",
+        location_point=geom,
+        is_active=True,
+    )
+    db_session.add(loc_model)
+    await db_session.commit()
+    return StorageLocation(
+        id=loc_id,
+        created_at=loc_model.created_at,
+        updated_at=loc_model.updated_at,
+        name="Pos Satpam Utama",
+        description="Gerbang depan kampus",
+        location_point=Point(-6.2000, 106.8166),
+        is_active=True,
+    )
 
 
 @pytest.mark.asyncio
@@ -170,6 +197,84 @@ async def test_search_lost_reports_with_filters(
 
 
 @pytest.mark.asyncio
+async def test_search_sort_by_distance(db_session, saved_dummy_user, saved_category):
+    repo = LostReportRepository(db_session)
+
+    target_point = Point(-6.1754, 106.8272)
+
+    r_near = LostReport.new_lost_report(
+        reporter=saved_dummy_user,
+        incident_date=datetime.now(timezone.utc),
+        title="Near Monas",
+        description="Lost in Gambir",
+        location_name="Gambir",
+        categories=[saved_category],
+    )
+    r_near._location_point = Point(-6.1760, 106.8270)
+
+    r_far = LostReport.new_lost_report(
+        reporter=saved_dummy_user,
+        incident_date=datetime.now(timezone.utc),
+        title="Far from Monas",
+        description="Lost in Blok M",
+        location_name="Blok M",
+        categories=[saved_category],
+    )
+    r_far._location_point = Point(-6.2444, 106.8006)
+
+    await repo.save(r_far)
+    await repo.save(r_near)
+    await db_session.commit()
+
+    res_asc = await repo.search(
+        location_point=target_point,
+        sort_by="distance",
+        sort_order="asc",
+        location_radius=20000,
+    )
+    assert len(res_asc) == 2
+    assert res_asc[0].id == r_near.id
+    assert res_asc[1].id == r_far.id
+
+    res_desc = await repo.search(
+        location_point=target_point,
+        sort_by="distance",
+        sort_order="desc",
+        location_radius=20000,
+    )
+    assert len(res_desc) == 2
+    assert res_desc[0].id == r_far.id
+    assert res_desc[1].id == r_near.id
+
+
+@pytest.mark.asyncio
+async def test_search_pagination(db_session, saved_dummy_user, saved_category):
+    repo = LostReportRepository(db_session)
+    now = datetime.now(timezone.utc)
+
+    for i in range(5):
+        r = LostReport.new_lost_report(
+            reporter=saved_dummy_user,
+            incident_date=now - timedelta(days=i),
+            title=f"Report {i}",
+            description="Pagination Test",
+            location_name="Loc",
+            categories=[saved_category],
+        )
+
+        r._created_at = now - timedelta(minutes=i)
+        await repo.save(r)
+
+    await db_session.commit()
+
+    res = await repo.search(sort_by="created_at", sort_order="desc", limit=2, offset=1)
+
+    assert len(res) == 2
+    assert res[0].title == "Report 1"
+    assert res[1].title == "Report 2"
+
+
+@pytest.mark.asyncio
 async def test_spatial_search_lost_reports(
     db_session, saved_dummy_user, saved_category
 ):
@@ -212,7 +317,11 @@ async def test_spatial_search_lost_reports(
 
 @pytest.mark.asyncio
 async def test_save_and_get_found_report(
-    db_session, saved_dummy_user, saved_dummy_admin, saved_category
+    db_session,
+    saved_dummy_user,
+    saved_dummy_admin,
+    saved_category,
+    saved_storage_location,
 ):
     repo = FoundReportRepository(db_session)
 
@@ -234,6 +343,7 @@ async def test_save_and_get_found_report(
         holder=saved_dummy_admin,
         finder_name="Jane Doe",
         finder_contact="08111111111",
+        storage_location=saved_storage_location,
     )
 
     await repo.save(report)
@@ -247,6 +357,62 @@ async def test_save_and_get_found_report(
     assert saved_report.holder.id == saved_dummy_admin.id
     assert saved_report.finder_name == "Jane Doe"
     assert saved_report.found_status == FoundStatus.HELD_BY_ADMIN
+    assert saved_report.storage_location is not None
+    assert saved_report.storage_location.id == saved_storage_location.id
+
+
+@pytest.mark.asyncio
+async def test_search_found_reports_with_complex_filters(
+    db_session,
+    saved_dummy_user,
+    saved_dummy_admin,
+    saved_category,
+    saved_storage_location,
+):
+    repo = FoundReportRepository(db_session)
+    now = datetime.now(timezone.utc)
+
+    r1 = FoundReport.new_hand_over_report(
+        reporter=saved_dummy_admin,
+        incident_date=now,
+        title="Found Wallet",
+        description="At lobbysssssssssssssssssss",
+        location_name="Lobby",
+        categories=[saved_category],
+        photos=["wallet.jpg"],
+        finder_name="Budi",
+        finder_contact="08111",
+        storage_location=saved_storage_location,
+    )
+    r1._report_status = ReportStatus.OPEN
+
+    r2 = FoundReport.new_found_report(
+        reporter=saved_dummy_user,
+        incident_date=now - timedelta(days=1),
+        title="Found Keys",
+        description="At parkssssssssssssssssssssssssss",
+        location_name="Park",
+        categories=[saved_category],
+        photos=["keys.jpg"],
+    )
+    r2._report_status = ReportStatus.RESOLVED
+    r2._found_status = FoundStatus.RETURNED_TO_OWNER
+
+    await repo.save(r1)
+    await repo.save(r2)
+    await db_session.commit()
+
+    res_storage = await repo.search(storage_location_id=saved_storage_location.id)
+    assert len(res_storage) == 1
+    assert res_storage[0].id == r1.id
+
+    res_status = await repo.search(found_status=FoundStatus.RETURNED_TO_OWNER)
+    assert len(res_status) == 1
+    assert res_status[0].id == r2.id
+
+    res_report_status = await repo.search(report_status=[ReportStatus.OPEN])
+    assert len(res_report_status) == 1
+    assert res_report_status[0].id == r1.id
 
 
 @pytest.mark.asyncio

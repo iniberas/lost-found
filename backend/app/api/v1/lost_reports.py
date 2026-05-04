@@ -44,7 +44,7 @@ from fastapi import (
     status,
 )
 
-router = APIRouter(prefix="/lost-reports", tags=["lost-reports"])
+router = APIRouter(prefix="/lost-reports", tags=["Lost Reports"])
 
 
 @router.get("", response_model=Paginated[LostReportResponse])

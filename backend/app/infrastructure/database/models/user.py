@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 class UserRole(str, enum.Enum):
     USER = "user"
     ADMIN = "admin"
+    SUPERADMIN = "superadmin"
 
 
 class UserModel(Base):
@@ -36,10 +37,12 @@ class UserModel(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role_enum", create_constraint=True),
+        Enum(UserRole, name="user_role_enum", create_constraint=False),
         nullable=False,
         default=UserRole.USER,
+        index=True,
     )
+
     reports = relationship(
         "ReportModel",
         back_populates="reporter",
@@ -50,3 +53,20 @@ class UserModel(Base):
         back_populates="holder",
         foreign_keys="[FoundReportModel.holder_id]",
     )
+
+    __mapper_args__ = {
+        "polymorphic_on": "role",
+        "polymorphic_identity": UserRole.USER,
+    }
+
+
+class AdminModel(UserModel):
+    __mapper_args__ = {
+        "polymorphic_identity": UserRole.ADMIN,
+    }
+
+
+class SuperAdminModel(UserModel):
+    __mapper_args__ = {
+        "polymorphic_identity": UserRole.SUPERADMIN,
+    }

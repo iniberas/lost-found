@@ -6,6 +6,7 @@ from typing import List, Optional, Self
 from app.domain.entities.category import Category
 from app.domain.entities.point import Point
 from app.domain.entities.proof import Proof
+from app.domain.entities.storage_location import StorageLocation
 from app.domain.entities.user import Admin, User
 from app.domain.exceptions import FutureDateError, StateTransitionError, ValidationError
 
@@ -199,6 +200,10 @@ class Report:
     def update_categories(self, new_categories: List[Category]):
         self._ensure_active()
 
+        has_inactive = any(not cat.is_active for cat in new_categories)
+        if has_inactive:
+            raise ValidationError("One or more assigned categories were not found")
+
         self._validate_categories(new_categories)
         self._categories = new_categories
         self._touch()
@@ -236,16 +241,19 @@ class Report:
 
         return cleaned_text
 
+    @classmethod
     def _validate_timestamp(self, dt: datetime, field_name: str):
         if dt.tzinfo is None:
             raise ValidationError(f"{field_name} must include timezone information")
 
+    @classmethod
     def _validate_incident_date(self, incident_date: datetime):
         self._validate_timestamp(incident_date, "Incident date")
 
         if incident_date > datetime.now(timezone.utc):
             raise FutureDateError("Incident date cannot be in the future")
 
+    @classmethod
     def _validate_title(self, title: str):
         if len(title) < self.TITLE_MIN_LEN:
             raise ValidationError(
@@ -256,6 +264,7 @@ class Report:
                 f"Title cannot exceed {self.TITLE_MAX_LEN} characters"
             )
 
+    @classmethod
     def _validate_description(self, description: str):
         if len(description) < self.DESCRIPTION_MIN_LEN:
             raise ValidationError(
@@ -266,6 +275,7 @@ class Report:
                 f"Description cannot exceed {self.DESCRIPTION_MAX_LEN} characters"
             )
 
+    @classmethod
     def _validate_location_name(self, location_name: str):
         if len(location_name) < self.LOCATION_NAME_MIN_LEN:
             raise ValidationError(
@@ -276,10 +286,12 @@ class Report:
                 f"Location name cannot exceed {self.LOCATION_NAME_MAX_LEN} characters"
             )
 
+    @classmethod
     def _validate_categories(self, categories: List[Category]):
         if not categories:
             raise ValidationError("A report must have at least one category assigned")
 
+    @classmethod
     def _validate_photos(self, photos: List[str]):
         if len(photos) > self.MAX_PHOTOS_COUNT:
             raise ValidationError(
@@ -384,7 +396,7 @@ class FoundReport(Report):
         description: str,
         location_name: str,
         categories: List[Category],
-        photos: List[str],  # found report harus ada fotonya biar ga boong ^v^
+        photos: List[str],
         holder: User,
         deleted_at: Optional[datetime] = None,
         handed_over_at: Optional[datetime] = None,
@@ -392,6 +404,7 @@ class FoundReport(Report):
         proof: Optional[Proof] = None,
         finder_name: Optional[str] = None,
         finder_contact: Optional[str] = None,
+        storage_location: Optional[StorageLocation] = None,
     ):
         super().__init__(
             id,
@@ -426,6 +439,7 @@ class FoundReport(Report):
         self._proof = proof
         self._finder_name = finder_name
         self._finder_contact = finder_contact
+        self._storage_location = storage_location
 
     @classmethod
     def new_found_report(
@@ -479,12 +493,15 @@ class FoundReport(Report):
         photos: List[str],
         finder_name: str,
         finder_contact: str,
+        storage_location: StorageLocation,
         location_point: Optional[Point] = None,
     ) -> Self:
         if finder_name is None or finder_contact is None:
             raise ValidationError(
                 "Finder name and contact are required for hand over reports"
             )
+
+        cls._validate_storate_location(storage_location)
 
         has_inactive = any(not cat.is_active for cat in categories)
         if has_inactive:
@@ -516,6 +533,7 @@ class FoundReport(Report):
             location_point=location_point,
             finder_name=finder_name,
             finder_contact=finder_contact,
+            storage_location=storage_location,
         )
 
     @property
@@ -541,6 +559,10 @@ class FoundReport(Report):
     @property
     def finder_contact(self) -> Optional[str]:
         return self._finder_contact
+
+    @property
+    def storage_location(self) -> Optional[StorageLocation]:
+        return self._storage_location
 
     def update_holder(self, new_holder: User):
         self._ensure_active()
@@ -568,6 +590,13 @@ class FoundReport(Report):
         self._finder_contact = new_finder_contact
         self._touch()
 
+    def update_storage_location(self, new_storage_location: StorageLocation):
+        self._ensure_active()
+
+        self._validate_storate_location(new_storage_location)
+        self._storage_location = new_storage_location
+        self._touch()
+
     def confirm_return(self, proof: Proof):
         self._ensure_active()
 
@@ -578,8 +607,10 @@ class FoundReport(Report):
         self._update_found_status(FoundStatus.RETURNED_TO_OWNER)
         self._update_report_status(ReportStatus.RESOLVED)
 
-    def hand_over_to_admin(self, admin: Admin):
+    def hand_over_to_admin(self, admin: Admin, storage_location: StorageLocation):
         self._ensure_active()
+
+        self._validate_storate_location(storage_location)
 
         if not isinstance(admin, Admin):
             raise ValidationError("Only an admin can accept a handed over item")
@@ -597,7 +628,9 @@ class FoundReport(Report):
         self._update_found_status(FoundStatus.HELD_BY_ADMIN)
         self._handed_over_at = datetime.now(timezone.utc)
         self.update_holder(admin)
+        self._storage_location = storage_location
 
+    @classmethod
     def _validate_finder_name(self, finder_name: str):
         if len(finder_name) < self.FINDER_NAME_MIN_LEN:
             raise ValidationError(
@@ -608,6 +641,7 @@ class FoundReport(Report):
                 f"Finder name cannot exceed {self.FINDER_NAME_MAX_LEN} characters"
             )
 
+    @classmethod
     def _validate_finder_contact(self, finder_contact: str):
         if len(finder_contact) < self.FINDER_CONTACT_MIN_LEN:
             raise ValidationError(
@@ -618,9 +652,15 @@ class FoundReport(Report):
                 f"Finder contact cannot exceed {self.FINDER_CONTACT_MAX_LEN} characters"
             )
 
+    @classmethod
     def _validate_photos(self, photos: List[str]):
         if not photos:
             raise ValidationError(
                 "A found report must have at least one photo attached as proof"
             )
         super()._validate_photos(photos)
+
+    @classmethod
+    def _validate_storate_location(self, new_storage_location: StorageLocation):
+        if not new_storage_location.is_active:
+            raise ValidationError("Cannot hand over to an inactive storage location")

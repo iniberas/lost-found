@@ -12,6 +12,7 @@ from app.domain.entities.report import (
     ReportStatus,
     ReportType,
 )
+from app.domain.entities.storage_location import StorageLocation
 from app.domain.entities.user import Admin, User
 from app.domain.exceptions import FutureDateError, StateTransitionError, ValidationError
 
@@ -53,6 +54,19 @@ def sample_proof():
 
 
 @pytest.fixture
+def sample_storage_location():
+    return StorageLocation(
+        id=uuid4(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        name="Pos Satpam Utama",
+        description="Pos penjagaan gerbang utama",
+        location_point=Point(latitude=-6.2, longitude=106.8),
+        is_active=True,
+    )
+
+
+@pytest.fixture
 def base_lost_kwargs(sample_user, sample_categories):
     return {
         "id": uuid4(),
@@ -85,6 +99,7 @@ def base_found_kwargs(sample_user, sample_categories):
         "categories": [sample_categories[0]],
         "photos": ["found_phone.jpg"],
         "holder": sample_user,
+        "storage_location": None,  
     }
 
 
@@ -294,6 +309,15 @@ def test_update_categories_fails_with_empty_list(base_lost_kwargs):
         report.update_categories([])
 
 
+def test_update_categories_fails_with_inactive_category(base_lost_kwargs):
+    
+    report = LostReport(**base_lost_kwargs)
+    inactive_cat = Category(id=uuid4(), name="Inactive Category", is_active=False)
+
+    with pytest.raises(ValidationError, match="found|inactive"):
+        report.update_categories([inactive_cat])
+
+
 def test_categories_getter_is_defensive_copy(base_lost_kwargs):
     report = LostReport(**base_lost_kwargs)
     report.categories.append(Category.new_category("Injected"))
@@ -399,6 +423,7 @@ def test_create_found_report_success(new_found_kwargs, photos, location_point):
     assert report.found_status == FoundStatus.HELD_BY_FINDER
     assert report.holder == new_found_kwargs["reporter"]
     assert report.photos == photos
+    assert report.storage_location is None  
 
 
 @pytest.mark.parametrize(
@@ -407,7 +432,11 @@ def test_create_found_report_success(new_found_kwargs, photos, location_point):
         ("title", "", "Title cannot be empty"),
         ("categories", [], "A report must have at least one category assigned"),
         ("photos", [], "A found report must have at least one photo"),
-        ("photos", None, "A found report must have at least one photo"),
+        (
+            "photos",
+            None,
+            "A found report must have at least one photo",
+        ),  
         (
             "photos",
             ["p.jpg"] * 11,
@@ -418,14 +447,10 @@ def test_create_found_report_success(new_found_kwargs, photos, location_point):
 def test_create_found_report_fails_with_invalid_data(
     new_found_kwargs, field, invalid_value, expected_error
 ):
-    if field == "photos" and invalid_value is None:
-        new_found_kwargs.pop("photos")
-        with pytest.raises(TypeError):
-            FoundReport.new_found_report(**new_found_kwargs)
-    else:
-        new_found_kwargs[field] = invalid_value
-        with pytest.raises(ValidationError, match=expected_error):
-            FoundReport.new_found_report(**new_found_kwargs)
+    
+    new_found_kwargs[field] = invalid_value
+    with pytest.raises(ValidationError, match=expected_error):
+        FoundReport.new_found_report(**new_found_kwargs)
 
 
 @pytest.mark.parametrize(
@@ -436,7 +461,11 @@ def test_create_found_report_fails_with_invalid_data(
     ],
 )
 def test_new_hand_over_report_success(
-    sample_admin, sample_categories, finder_name, finder_contact
+    sample_admin,
+    sample_categories,
+    finder_name,
+    finder_contact,
+    sample_storage_location,
 ):
     report = FoundReport.new_hand_over_report(
         reporter=sample_admin,
@@ -448,14 +477,17 @@ def test_new_hand_over_report_success(
         photos=["found.jpg"],
         finder_name=finder_name,
         finder_contact=finder_contact,
+        storage_location=sample_storage_location,  
     )
 
     assert report.report_type == ReportType.FOUND
     assert report.found_status == FoundStatus.HELD_BY_ADMIN
     assert report.holder == sample_admin
     assert report.handed_over_at is not None
+    assert report.handed_over_at >= report.created_at
     assert report.finder_name == finder_name
     assert report.finder_contact == finder_contact
+    assert report.storage_location == sample_storage_location
 
 
 @pytest.mark.parametrize(
@@ -470,7 +502,12 @@ def test_new_hand_over_report_success(
     ],
 )
 def test_new_hand_over_report_fails_with_invalid_finder_info(
-    sample_admin, sample_categories, finder_name, finder_contact, expected_error
+    sample_admin,
+    sample_categories,
+    finder_name,
+    finder_contact,
+    expected_error,
+    sample_storage_location,
 ):
     with pytest.raises(ValidationError, match=expected_error):
         FoundReport.new_hand_over_report(
@@ -483,6 +520,7 @@ def test_new_hand_over_report_fails_with_invalid_finder_info(
             photos=["found.jpg"],
             finder_name=finder_name,
             finder_contact=finder_contact,
+            storage_location=sample_storage_location,
         )
 
 
@@ -511,52 +549,60 @@ def test_found_report_confirm_return_fails_if_deleted(base_found_kwargs, sample_
         report.confirm_return(sample_proof)
 
 
-def test_found_report_hand_over_to_admin(base_found_kwargs, sample_admin):
+def test_found_report_hand_over_to_admin(
+    base_found_kwargs, sample_admin, sample_storage_location
+):
     report = FoundReport(**base_found_kwargs)
-    report.hand_over_to_admin(sample_admin)
+    original_holder = report.holder
+    original_created_at = report.created_at
+
+    report.hand_over_to_admin(sample_admin, sample_storage_location)
 
     assert report.found_status == FoundStatus.HELD_BY_ADMIN
     assert report.holder == sample_admin
+    assert report.holder != original_holder  
     assert report.handed_over_at is not None
+    assert report.handed_over_at >= original_created_at  
+    assert report.storage_location == sample_storage_location
 
 
 def test_found_report_hand_over_to_admin_fails_if_not_admin(
-    base_found_kwargs, sample_user
+    base_found_kwargs, sample_user, sample_storage_location
 ):
     report = FoundReport(**base_found_kwargs)
     with pytest.raises(ValidationError, match="Only an admin"):
-        report.hand_over_to_admin(sample_user)
+        report.hand_over_to_admin(sample_user, sample_storage_location)
 
 
 def test_found_report_hand_over_to_admin_fails_if_already_returned(
-    base_found_kwargs, sample_admin, sample_proof
+    base_found_kwargs, sample_admin, sample_proof, sample_storage_location
 ):
     report = FoundReport(**base_found_kwargs)
     report.confirm_return(sample_proof)
     with pytest.raises(
         (StateTransitionError, ValueError), match="already been returned"
     ):
-        report.hand_over_to_admin(sample_admin)
+        report.hand_over_to_admin(sample_admin, sample_storage_location)
 
 
 def test_found_report_hand_over_to_admin_fails_if_already_held_by_admin(
-    base_found_kwargs, sample_admin
+    base_found_kwargs, sample_admin, sample_storage_location
 ):
     report = FoundReport(**base_found_kwargs)
-    report.hand_over_to_admin(sample_admin)
+    report.hand_over_to_admin(sample_admin, sample_storage_location)
     with pytest.raises(
         (StateTransitionError, ValueError), match="already been handed over"
     ):
-        report.hand_over_to_admin(sample_admin)
+        report.hand_over_to_admin(sample_admin, sample_storage_location)
 
 
 def test_found_report_hand_over_to_admin_fails_if_deleted(
-    base_found_kwargs, sample_admin
+    base_found_kwargs, sample_admin, sample_storage_location
 ):
     report = FoundReport(**base_found_kwargs)
     report.delete()
     with pytest.raises((StateTransitionError, ValueError)):
-        report.hand_over_to_admin(sample_admin)
+        report.hand_over_to_admin(sample_admin, sample_storage_location)
 
 
 def test_found_report_update_photos_fails_with_empty_list(base_found_kwargs):
@@ -595,6 +641,19 @@ def test_found_report_update_holder(base_found_kwargs, sample_admin):
     report.update_holder(sample_admin)
 
     assert report.holder == sample_admin
+    assert report.updated_at > past_time
+
+
+def test_found_report_update_storage_location(
+    base_found_kwargs, sample_storage_location
+):
+    report = FoundReport(**base_found_kwargs)
+    past_time = datetime.now(timezone.utc) - timedelta(days=1)
+    report._updated_at = past_time
+
+    report.update_storage_location(sample_storage_location)
+
+    assert report.storage_location == sample_storage_location
     assert report.updated_at > past_time
 
 
