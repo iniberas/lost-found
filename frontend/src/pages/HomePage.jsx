@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, PackageOpen, Calendar, MapPin, Loader2 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
 import Navbar from '../components/Navbar';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -95,7 +107,8 @@ export default function HomePage({ user, handleLogout }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('lost');
   const [searchQuery, setSearchQuery] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [selectedStatuses, setSelectedStatuses] = useState(['open']); // Default hanya open
   
@@ -140,6 +153,20 @@ export default function HomePage({ user, handleLogout }) {
     }
   };
 
+  // State untuk Maps Filter
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [filterLocation, setFilterLocation] = useState(null); // Menyimpan {lat, lng}
+
+  // Komponen pembantu untuk deteksi klik di peta
+  const MapClickHandler = () => {
+    useMapEvents({
+      click(e) {
+        setFilterLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
+      },
+    });
+    return null;
+  };
+
   // Fetch reports dari API
   const fetchReports = async (page = pagination.current_page) => {
     setLoading(true);
@@ -161,14 +188,18 @@ export default function HomePage({ user, handleLogout }) {
         params.append('query', searchQuery.trim());
       }
       
-      if (dateFilter) {
-        const [year, month, day] = dateFilter.split('-').map(Number);
-
-        const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-        const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
-
-        params.append('incident_date_from', startDate.toISOString());
-        params.append('incident_date_to', endDate.toISOString());
+      if (startDate) {
+        // Dari tanggal yang dipilih, jam 00:00:00
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        params.append('incident_date_from', start.toISOString());
+      }
+      
+      if (endDate) {
+        // Sampai tanggal yang dipilih, mentok di jam 23:59:59
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        params.append('incident_date_to', end.toISOString());
       }
 
       // Tambahkan report_status filter (hanya jika ada yang dipilih)
@@ -413,14 +444,32 @@ export default function HomePage({ user, handleLogout }) {
               {/* Filter Tanggal */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Waktu Kejadian</label>
-                <div className="relative">
-                  <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="date" 
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#0C0B89]/20 transition-all text-gray-600"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                  />
+                <div className="flex items-center gap-2">
+                  {/* Tanggal Awal */}
+                  <div className="relative w-full">
+                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                      type="date" 
+                      className="w-full pl-9 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#0C0B89]/20 transition-all text-gray-600"
+                      value={startDate}
+                      max={endDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      title="Dari Tanggal"
+                    />
+                  </div>
+                  <span className="text-gray-400 font-bold">-</span>
+                  {/* Tanggal Akhir */}
+                  <div className="relative w-full">
+                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                      type="date" 
+                      className="w-full pl-9 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#0C0B89]/20 transition-all text-gray-600"
+                      value={endDate}
+                      min={startDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      title="Sampai Tanggal"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -429,8 +478,14 @@ export default function HomePage({ user, handleLogout }) {
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Area Lokasi</label>
                 <div className="relative">
                   <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <button className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm text-left text-gray-500 hover:bg-gray-100 transition-all flex justify-between items-center group">
-                    Pilih Titik Peta
+                  <button 
+                    onClick={() => setIsMapModalOpen(true)}
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm text-left text-gray-500 hover:bg-gray-100 transition-all flex justify-between items-center group"
+                  >
+                    {/* Ubah teks jika lokasi sudah terpilih */}
+                    <span className="truncate">
+                      {filterLocation ? `Terpilih: ${filterLocation.lat.toFixed(4)}, ${filterLocation.lng.toFixed(4)}` : "Pilih Titik Peta"}
+                    </span>
                     <span className="text-[10px] font-bold bg-[#0C0B89] text-white px-2 py-1 rounded-lg opacity-80 group-hover:opacity-100 transition-opacity">Maps</span>
                   </button>
                 </div>
@@ -465,6 +520,43 @@ export default function HomePage({ user, handleLogout }) {
           </aside>
         </div>
       </section>
+
+      {/* MODAL MAPS POP-UP */}
+      {isMapModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-[600px] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-xl font-bold mb-4 text-[#0C0B89]">Pilih Titik Pencarian</h3>
+            <p className="text-sm text-gray-500 mb-4">Klik pada peta untuk menentukan area barang yang ingin kamu cari.</p>
+            
+            <div className="h-[350px] w-full rounded-2xl overflow-hidden border-2 border-gray-100 relative z-0">
+              {/* Koordinat tengah di-set ke area IPB Dramaga */}
+              <MapContainer center={[-6.5607, 106.7265]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                <TileLayer 
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                <MapClickHandler />
+                {filterLocation && <Marker position={filterLocation} />}
+              </MapContainer>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                onClick={() => { setFilterLocation(null); setIsMapModalOpen(false); }} 
+                className="px-5 py-2.5 text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold transition-colors"
+              >
+                Reset / Batal
+              </button>
+              <button 
+                onClick={() => setIsMapModalOpen(false)} 
+                className="px-5 py-2.5 bg-[#0C0B89] text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
+              >
+                Simpan Titik Lokasi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
