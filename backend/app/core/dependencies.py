@@ -100,8 +100,8 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-thing")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-thing")
 
 
 def get_hasher() -> PasslibHasher:

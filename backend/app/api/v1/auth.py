@@ -2,7 +2,6 @@ from app.core.dependencies import (
     get_login_use_case,
     get_refresh_use_case,
     get_register_use_case,
-    get_register_user_form,
 )
 from app.domain.use_cases.auth import (
     LoginUserUseCase,
@@ -21,7 +20,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 async def register(
-    body: RegisterUserRequest = Depends(get_register_user_form),
+    body: RegisterUserRequest,
     use_case: RegisterUserUseCase = Depends(get_register_use_case),
 ):
     try:
@@ -41,7 +40,9 @@ async def login(
     body: LoginUserRequest,
     use_case: LoginUserUseCase = Depends(get_login_use_case),
 ):
+    print("HAHIHIAIHAHDADHIA")
     try:
+        print(body)
         token_dict = await use_case.execute(email=body.email, password=body.password)
         return TokenResponse(**token_dict)
     except ValueError as e:
