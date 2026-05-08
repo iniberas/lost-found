@@ -21,7 +21,7 @@ import {
 import AdminDashboardLayout from "../../../layouts/AdminDashboard";
 import PageHeader from "../../../components/admin/PageHeader";
 import StatusBadge from "../../../components/admin/StatusBadge";
-import { LocationPicker } from "../../../components/admin/LocationPicker";
+import { LocationPicker } from "../../../components/LocationPicker";
 import { IPB_COLORS, ADMIN_COLORS } from "../../../constants/colors";
 import { adminFetch } from "../../../utils/adminApi";
 

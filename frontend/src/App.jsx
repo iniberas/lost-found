@@ -5,13 +5,15 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import ReportDetailPage from "./pages/ReportDetailPage";
-import UpdateReportPage from "./pages/UpdateReportPage";
 
 // pages
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 import CreateReportPage from "./pages/CreateReportPage";
+import ReportDetailPage from "./pages/ReportDetailPage";
+import UpdateReportPage from "./pages/UpdateReportPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import AdminDashboardHomePage from "./pages/admin/HomePage";
 import AdminManageUsersPage from "./pages/admin/ManageUsersPage";
 import AdminUserDetailPage from "./pages/admin/UserDetailPage";
@@ -119,22 +121,35 @@ function AppContent() {
       />
 
       <Route
-        path="/lapor-hilang"
-        element={<CreateReportPage user={user} handleLogout={handleLogout} />}
-      />
-      <Route
-        path="/lapor-temuan"
-        element={<CreateReportPage user={user} handleLogout={handleLogout} />}
-      />
-
-      <Route
         path="/report/:id"
         element={<ReportDetailPage user={user} handleLogout={handleLogout} />}
       />
 
       <Route
+        path="/lapor-hilang"
+        element={
+          <ProtectedRoute user={user}>
+            <CreateReportPage user={user} handleLogout={handleLogout} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/lapor-temuan"
+        element={
+          <ProtectedRoute user={user}>
+            <CreateReportPage user={user} handleLogout={handleLogout} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/update-report/:id"
-        element={<UpdateReportPage user={user} handleLogout={handleLogout} />}
+        element={
+          <ProtectedRoute user={user}>
+            <UpdateReportPage user={user} handleLogout={handleLogout} />
+          </ProtectedRoute>
+        }
       />
 
       <Route

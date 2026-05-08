@@ -10,7 +10,7 @@ import {
   Crosshair,
 } from "lucide-react";
 import { MapContainer, TileLayer } from "react-leaflet";
-import { LocationPicker } from "../../../components/admin/LocationPicker";
+import { LocationPicker } from "../../../components/LocationPicker";
 
 const API_URL = "http://127.0.0.1:8000";
 
