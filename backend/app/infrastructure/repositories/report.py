@@ -236,6 +236,7 @@ class LostReportRepository(ILostReportRepository):
     ) -> List[LostReport]:
         stmt = (
             select(LostReportModel)
+            .distinct()
             .options(
                 selectinload(LostReportModel.reporter),
                 selectinload(LostReportModel.categories),
@@ -521,6 +522,7 @@ class FoundReportRepository(IFoundReportRepository):
     ) -> List[FoundReport]:
         stmt = (
             select(FoundReportModel)
+            .distinct()
             .options(
                 selectinload(FoundReportModel.reporter),
                 selectinload(FoundReportModel.holder),
