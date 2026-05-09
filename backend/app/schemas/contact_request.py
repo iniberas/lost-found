@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.domain.entities.contact_request import RequestStatus
+from app.domain.entities.report import ReportType
 from app.schemas.user import UserResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -15,6 +16,7 @@ class ContactRequestResponse(BaseModel):
     requester: UserResponse
     target_user: UserResponse
     report_id: uuid.UUID
+    report_type: ReportType
     status: RequestStatus
     message: Optional[str] = None
 
@@ -22,6 +24,6 @@ class ContactRequestResponse(BaseModel):
 
 
 class CreateContactRequestPayload(BaseModel):
-    target_user_id: uuid.UUID
     report_id: uuid.UUID
+    report_type: ReportType
     message: Optional[str] = None

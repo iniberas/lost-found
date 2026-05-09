@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from app.domain.entities.contact_request import ContactRequest, RequestStatus
+from app.domain.entities.report import ReportType
 
 
 class IContactRequestRepository(ABC):
@@ -20,6 +21,7 @@ class IContactRequestRepository(ABC):
         requester_id: Optional[uuid.UUID] = None,
         target_user_id: Optional[uuid.UUID] = None,
         report_id: Optional[uuid.UUID] = None,
+        report_type: Optional[uuid.UUID] = ReportType,
         status: Optional[RequestStatus] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",

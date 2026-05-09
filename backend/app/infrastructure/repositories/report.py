@@ -200,6 +200,7 @@ class LostReportRepository(ILostReportRepository):
             location_point,
             location_radius,
         )
+        stmt = stmt.distinct()
         stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
         stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
@@ -482,6 +483,7 @@ class FoundReportRepository(IFoundReportRepository):
             found_status,
             storage_location_id,
         )
+        stmt = stmt.distinct()
         stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
         stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)

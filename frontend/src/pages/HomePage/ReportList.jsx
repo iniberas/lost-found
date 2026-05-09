@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { PackageOpen, Loader2 } from "lucide-react";
 import ReportCard from "./ReportCard";
 
-const ReportList = ({ 
-  items, 
-  loading, 
-  activeTab, 
-  searchQuery 
+const ReportList = ({
+  items,
+  loading,
+  activeTab,
+  searchQuery
 }) => {
   const navigate = useNavigate();
 
@@ -48,8 +48,9 @@ const ReportList = ({
         <ReportCard
           key={item.id}
           item={item}
-          onClick={() =>
+          onClick={() => {            
             navigate(`/report/${item.id}?type=${item.report_type}`)
+          }
           }
         />
       ))}

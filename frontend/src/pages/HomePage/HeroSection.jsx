@@ -8,7 +8,7 @@ const HeroSection = ({ user }) => {
     <section className="bg-auth-pattern bg-repeat py-50 md:py-64 px-8 md:px-16 flex flex-col items-start text-left space-y-8 shadow-sm z-10 relative">
       <div className="w-full space-y-2">
         <h2 className="text-[48px] md:text-[62px] font-black text-[#0C0B89] leading-tight drop-shadow-md">
-          {user ? `Halo, ${user.name}!` : "IPB Lost & Found"}
+          {user ? `Halo, ${user.name}!` : "Waldo!"}
         </h2>
         <p className="text-[#768ADB] text-[20px] md:text-[22px] font-medium font-poppins drop-shadow-sm">
           Kehilangan atau Menemukan Barang di IPB?

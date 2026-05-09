@@ -5,10 +5,12 @@ from typing import Optional
 from app.domain.entities.audit_log import ActionType, AuditLog, EntityType
 from app.domain.entities.contact_request import ContactRequest, RequestStatus
 from app.domain.entities.user import User
+from app.domain.entities.report import ReportType
 from app.domain.interfaces.audit_log import IAuditLogRepository
 from app.domain.interfaces.contact_request import IContactRequestRepository
 from app.domain.interfaces.user import IUserRepository
 from app.schemas.pagination import Paginated
+from app.domain.interfaces.report import IFoundReportRepository, ILostReportRepository
 
 
 class CreateContactRequestUseCase:
@@ -17,21 +19,38 @@ class CreateContactRequestUseCase:
         request_repo: IContactRequestRepository,
         user_repo: IUserRepository,
         audit_log_repo: IAuditLogRepository,
+        lost_report_repo: ILostReportRepository,
+        found_report_repo: IFoundReportRepository,
     ):
         self.request_repo = request_repo
         self.user_repo = user_repo
         self.audit_log_repo = audit_log_repo
+        self.lost_report_repo = lost_report_repo
+        self.found_report_repo = found_report_repo
 
     async def execute(
-        self,
-        requester: User,
-        target_user_id: uuid.UUID,
-        report_id: uuid.UUID,
-        message: Optional[str] = None,
-    ) -> ContactRequest:
-        target_user = await self.user_repo.get_by_id(target_user_id)
-        if not target_user:
-            raise ValueError("Target user not found")
+    self,
+    requester: User,
+    report_id: uuid.UUID,
+    report_type: ReportType,
+    message: Optional[str] = None,
+) -> ContactRequest:
+        if report_type == ReportType.LOST:
+            report = await self.lost_report_repo.get_by_id(report_id)
+
+        elif report_type == ReportType.FOUND:
+            report = await self.found_report_repo.get_by_id(report_id)
+
+        else:
+            raise ValueError("Invalid report type")
+
+        if not report:
+            raise ValueError("Report not found")
+
+        if report.reporter.id == requester.id:
+            raise ValueError("Cannot contact your own report")
+
+        target_user = report.reporter
 
         existing_requests = await self.request_repo.search(
             requester_id=requester.id,
@@ -39,6 +58,7 @@ class CreateContactRequestUseCase:
             report_id=report_id,
             status=RequestStatus.PENDING,
         )
+
         if existing_requests:
             raise ValueError(
                 "You already have a pending contact request for this report"
@@ -48,8 +68,10 @@ class CreateContactRequestUseCase:
             requester=requester,
             target_user=target_user,
             report_id=report_id,
+            report_type=report_type,
             message=message,
         )
+
         await self.request_repo.save(request)
 
         log = AuditLog.new_log(
@@ -60,8 +82,10 @@ class CreateContactRequestUseCase:
             changes={
                 "target_user_id": str(target_user.id),
                 "report_id": str(report_id),
+                "report_type": report_type.value,
             },
         )
+
         await self.audit_log_repo.save(log)
 
         return request

@@ -24,13 +24,15 @@ import Toast from "../../components/Toast";
 
 // Import hooks
 import { useReports } from "../../hooks/useReports";
-import { useStatusFilter } from "../../hooks/useStatusFilter";
 
 export default function HomePage({ user, handleLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState("lost");
+  const params = new URLSearchParams(location.search);
+  const initialTab = params.get("tab") || "lost";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [filterLocation, setFilterLocation] = useState(null);
 
@@ -38,7 +40,6 @@ export default function HomePage({ user, handleLogout }) {
   const showToast = (message, type = "success") => {
     setToast({ message, type });
   };
-
 
   useEffect(() => {
     if (location.state?.toast) {
@@ -51,14 +52,6 @@ export default function HomePage({ user, handleLogout }) {
       navigate(location.pathname, { replace: true });
     }
   }, [location, navigate]);
-
-  // Status filter hook
-  const {
-    selectedStatuses,
-    setSelectedStatuses,
-    handleStatusChange,
-    handleAllStatusChange,
-  } = useStatusFilter();
 
   // Reports data hook
   const {
@@ -73,15 +66,44 @@ export default function HomePage({ user, handleLogout }) {
     setStartDate,
     endDate,
     setEndDate,
-    selectedCategory,
-    setSelectedCategory,
+    categories,
+    selectedCategories,
+    setSelectedCategories,
     handleApplyFilter,
-  } = useReports(activeTab, selectedStatuses);
+  } = useReports(activeTab);
+
+  const toggleCategory = (catId) => {
+    setSelectedCategories((prev) => {
+      if (prev.includes(catId)) {
+        return prev.filter((id) => id !== catId);
+      }
+
+      return [...prev, catId];
+    });
+  };
+  const handleAllCategories = () => {
+    setSelectedCategories([]);
+  };
 
   // Handle tab change
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setPagination((prev) => ({ ...prev, current_page: 1 }));
+
+    const params = new URLSearchParams(location.search);
+    params.set("tab", tab);
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString(),
+      },
+      { replace: false }
+    );
+
+    setPagination((prev) => ({
+      ...prev,
+      current_page: 1,
+    }));
   };
 
   return (
@@ -100,78 +122,76 @@ export default function HomePage({ user, handleLogout }) {
 
       {/* LIST SECTION */}
       <section className="bg-[#F3F4FF] flex-grow py-12 px-8 md:px-16">
-        <div className="w-full max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8 md:gap-12">
+        <div className="w-full max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8 md:gap-12 items-start min-w-0">
+          <div className="flex-1 min-w-0 space-y-6">
+            {/* Tab Switcher */}
+            <div className="flex bg-white shadow-sm border border-gray-100 p-1.5 rounded-2xl w-fit">
+              <button
+                onClick={() => handleTabChange("lost")}
+                className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "lost"
+                  ? "bg-[#0C0B89] text-white shadow-md"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                Daftar Barang Hilang
+              </button>
 
-          <div className="flex-grow space-y-6">
-            <div className="flex-grow space-y-6">
-              {/* Tab Switcher */}
-              <div className="flex bg-white shadow-sm border border-gray-100 p-1.5 rounded-2xl w-fit">
-                <button
-                  onClick={() => handleTabChange("lost")}
-                  className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "lost"
-                    ? "bg-[#0C0B89] text-white shadow-md"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                    }`}
-                >
-                  Daftar Barang Hilang
-                </button>
-
-                <button
-                  onClick={() => handleTabChange("found")}
-                  className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "found"
-                    ? "bg-[#0C0B89] text-white shadow-md"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                    }`}
-                >
-                  Daftar Barang Temuan
-                </button>
-              </div>
-
-              {/* Error Notification */}
-              {error && (
-                <div
-                  className={`p-3 rounded-lg text-sm font-medium ${error.includes("Success")
-                    ? "bg-green-50 text-green-600"
-                    : "bg-red-50 text-red-600"
-                    }`}
-                >
-                  {error}
-                </div>
-              )}
-
-              {/* Report List */}
-              <ReportList
-                items={items}
-                loading={loading}
-                activeTab={activeTab}
-                searchQuery={searchQuery}
-              />
-
-              {/* Pagination */}
-              <Pagination
-                pagination={pagination}
-                setPagination={setPagination}
-              />
+              <button
+                onClick={() => handleTabChange("found")}
+                className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "found"
+                  ? "bg-[#0C0B89] text-white shadow-md"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                Daftar Barang Temuan
+              </button>
             </div>
+
+            {/* Error Notification */}
+            {error && (
+              <div
+                className={`p-3 rounded-lg text-sm font-medium ${error.includes("Success")
+                  ? "bg-green-50 text-green-600"
+                  : "bg-red-50 text-red-600"
+                  }`}
+              >
+                {error}
+              </div>
+            )}
+
+            {/* Report List */}
+            <ReportList
+              items={items}
+              loading={loading}
+              activeTab={activeTab}
+              searchQuery={searchQuery}
+            />
+
+            {/* Pagination */}
+            <Pagination
+              pagination={pagination}
+              setPagination={setPagination}
+            />
           </div>
 
-          <FilterSidebar
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            selectedStatuses={selectedStatuses}
-            handleStatusChange={handleStatusChange}
-            handleAllStatusChange={handleAllStatusChange}
-            filterLocation={filterLocation}
-            setIsMapModalOpen={setIsMapModalOpen}
-            handleApplyFilter={handleApplyFilter}
-            loading={loading}
-          />
+          <div className="lg:w-[320px] lg:sticky lg:top-6 max-h-[calc(100vh-48px)] overflow-y-auto">
+            <FilterSidebar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              categories={categories}
+              selectedCategories={selectedCategories}
+              toggleCategory={toggleCategory}
+              handleAllCategories={handleAllCategories}
+              filterLocation={filterLocation}
+              setIsMapModalOpen={setIsMapModalOpen}
+              handleApplyFilter={handleApplyFilter}
+              loading={loading}
+            />
+          </div>
         </div>
       </section>
 

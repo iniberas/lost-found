@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from app.domain.entities.contact_request import ContactRequest, RequestStatus
 from app.domain.entities.user import Admin, SuperAdmin, User
+from app.domain.entities.report import ReportType
 from app.domain.interfaces.contact_request import IContactRequestRepository
 from app.infrastructure.database.models.contact_request import ContactRequestModel
 from app.infrastructure.database.models.user import UserModel, UserRole
@@ -43,6 +44,7 @@ class ContactRequestRepository(IContactRequestRepository):
             requester=_user_from_model(model.requester),
             target_user=_user_from_model(model.target_user),
             report_id=model.report_id,
+            report_type=ReportType(model.report_type),
             status=RequestStatus(model.status),
             message=model.message,
             responded_at=model.responded_at,
@@ -66,6 +68,7 @@ class ContactRequestRepository(IContactRequestRepository):
                     requester_id=request.requester.id,
                     target_user_id=request.target_user.id,
                     report_id=request.report_id,
+                    report_type=request.report_type.value,
                     status=request.status.value,
                     message=request.message,
                 )

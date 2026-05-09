@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import {
   X,
   TriangleAlert,
+
 } from "lucide-react";
 import { IPB_COLORS } from "../constants/colors";
 
@@ -13,8 +14,12 @@ export default function ConfirmModal({
   title = "Konfirmasi",
   message = "fr??",
   confirmText = "Confirm",
-  cancelText = "Batal",
+  cancelText = "Cancel",
   loading = false,
+
+  icon: Icon = TriangleAlert,
+  iconClassName = "text-amber-500",
+  confirmButtonClassName = "",
 }) {
   useEffect(() => {
     if (!open) return;
@@ -42,16 +47,16 @@ export default function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
-      
+
       {/* MODAL */}
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
 
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
           <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <TriangleAlert
+            <Icon
               size={18}
-              className="text-amber-500"
+              className={iconClassName}
             />
             {title}
           </h3>
@@ -87,11 +92,15 @@ export default function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
-            style={{ backgroundColor: IPB_COLORS.blue.primary }}
-          >
+   className={`px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50 ${confirmButtonClassName}`}
+  style={
+    !confirmButtonClassName
+      ? { backgroundColor: IPB_COLORS.blue.primary }
+      : undefined
+  }
+ >
             {loading
-              ? "Memproses..."
+              ? "Processing..."
               : confirmText}
           </button>
         </div>

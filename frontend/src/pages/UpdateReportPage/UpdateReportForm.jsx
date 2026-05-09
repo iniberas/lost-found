@@ -72,7 +72,6 @@ export default function UpdateReportForm({ user, showToast }) {
 
         const data = await response.json();
 
-        console.log(data.reporter.id)
         if (user && data.reporter.id !== user.id) {
           navigate("/home", {
             state: {
@@ -84,6 +83,19 @@ export default function UpdateReportForm({ user, showToast }) {
           });
           return;
         }
+        
+				if (data.report_status?.toLowerCase() === "resolved") {
+					navigate(`/report/${id}?type=${activeTab}`, {
+						replace: true,
+						state: {
+							toast: {
+								type: "error",
+								message: "Laporan yang sudah resolved tidak dapat diedit"
+							},
+						},
+					});
+					return;
+				}
 
         const dateStr = data.incident_date
           ? new Date(data.incident_date).toISOString().slice(0, 16)
@@ -248,8 +260,6 @@ export default function UpdateReportForm({ user, showToast }) {
         }
       }
 
-      // alert('Perubahan berhasil disimpan!');
-      // navigate(`/report/${id}?type=${activeTab}`);
       navigate(`/report/${id}?type=${activeTab}`, {
 				state: {
 					toast: {

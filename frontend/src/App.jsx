@@ -12,6 +12,8 @@ import HomePage from "./pages/HomePage";
 import CreateReportPage from "./pages/CreateReportPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import UpdateReportPage from "./pages/UpdateReportPage";
+import MyReportsPage from './pages/MyReportsPage';
+import MyContactRequestsPage from './pages/MyContactRequestsPage';
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import AdminDashboardHomePage from "./pages/admin/HomePage";
@@ -151,6 +153,25 @@ function AppContent() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/my-reports"
+        element={
+          <ProtectedRoute user={user}>
+            <MyReportsPage user={user} handleLogout={handleLogout} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/my-requests"
+        element={
+          <ProtectedRoute user={user}>
+            <MyContactRequestsPage user={user} handleLogout={handleLogout} />
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route
         path="/admin/auth"

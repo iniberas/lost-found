@@ -15,6 +15,11 @@ class RequestStatus(str, enum.Enum):
     CANCELED = "canceled"
 
 
+class ReportType(str, enum.Enum):
+    LOST = "lost"
+    FOUND = "found"
+
+
 class ContactRequestModel(Base):
     __tablename__ = "contact_requests"
 
@@ -39,6 +44,11 @@ class ContactRequestModel(Base):
     )
     report_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("reports.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    report_type: Mapped[ReportType] = mapped_column(
+        Enum(ReportType, name="report_type_enum", create_constraint=True),
+        nullable=False,
+        server_default=ReportType.LOST
     )
 
     status: Mapped[RequestStatus] = mapped_column(

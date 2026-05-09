@@ -8,9 +8,12 @@ from app.core.dependencies import (
     get_current_user,
     get_reject_contact_request_use_case,
     get_search_contact_requests_use_case,
+    get_lost_report_by_id_use_case,
+    get_found_report_by_id_use_case,
 )
 from app.domain.entities.contact_request import RequestStatus
 from app.domain.entities.user import User
+
 from app.domain.exceptions import StateTransitionError, ValidationError
 from app.domain.use_cases.contact_request import (
     ApproveContactRequestUseCase,
@@ -37,13 +40,13 @@ async def create_contact_request(
     current_user: User = Depends(get_current_user),
     use_case: CreateContactRequestUseCase = Depends(
         get_create_contact_request_use_case
-    ),
+    )
 ):
     try:
         request = await use_case.execute(
             requester=current_user,
-            target_user_id=body.target_user_id,
             report_id=body.report_id,
+            report_type=body.report_type,
             message=body.message,
         )
         return ContactRequestResponse.model_validate(request)
@@ -57,6 +60,7 @@ async def create_contact_request(
 async def get_my_contact_requests(
     request_type: str = Query(...),  # incoming atau outgoing
     status_filter: Optional[RequestStatus] = Query(None, alias="status"),
+    report_id: Optional[uuid.UUID] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -81,6 +85,7 @@ async def get_my_contact_requests(
         limit=limit,
         requester_id=requester_id,
         target_user_id=target_user_id,
+        report_id=report_id,
         status=status_filter,
     )
 

@@ -6,6 +6,7 @@ from typing import Optional, Self
 from app.domain.entities.user import User
 from app.domain.exceptions import StateTransitionError, ValidationError
 
+from app.domain.entities.report import ReportType
 
 class RequestStatus(str, Enum):
     PENDING = "pending"
@@ -25,6 +26,7 @@ class ContactRequest:
         requester: User,
         target_user: User,
         report_id: uuid.UUID,
+        report_type: ReportType,
         status: RequestStatus,
         message: Optional[str] = None,
         responded_at: Optional[datetime] = None,
@@ -47,6 +49,7 @@ class ContactRequest:
         self._requester = requester
         self._target_user = target_user
         self._report_id = report_id
+        self._report_type = report_type
         self._status = status
         self._message = message
         self._responded_at = responded_at
@@ -65,6 +68,7 @@ class ContactRequest:
         requester: User,
         target_user: User,
         report_id: uuid.UUID,
+        report_type: ReportType,
         message: Optional[str] = None,
     ) -> Self:
         id = uuid.uuid4()
@@ -79,6 +83,7 @@ class ContactRequest:
             requester,
             target_user,
             report_id,
+            report_type,
             status,
             message,
         )
@@ -106,6 +111,10 @@ class ContactRequest:
     @property
     def report_id(self) -> uuid.UUID:
         return self._report_id
+
+    @property
+    def report_type(self) -> ReportType:
+        return self._report_type
 
     @property
     def status(self) -> RequestStatus:

@@ -100,8 +100,12 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-thing")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login",
+    auto_error=False,
+)
 
 
 def get_hasher() -> PasslibHasher:
@@ -194,6 +198,38 @@ async def get_current_user(
         )
     return user
 
+# buat di get report, soalnya bisa aja lom login gitu
+async def get_current_user_optional(
+    token: Optional[str] = Depends(
+        oauth2_scheme_optional
+    ),
+    user_repo: UserRepository = Depends(get_user_repo),
+    token_service: JWTTokenService = Depends(get_token_service),
+) -> Optional[User]:
+
+    print("token" + str(token))
+    if not token:
+        return None
+
+    try:
+        payload = token_service.decode_token(token)
+        email: str = payload.get("sub")
+
+        if not email:
+            return None
+
+    except ValueError:
+        return None
+
+    user = await user_repo.find_by_email(email)
+
+    if not user:
+        return None
+
+    if user.deleted_at is not None:
+        return None
+
+    return user
 
 async def get_current_admin(current_user: User = Depends(get_current_user)) -> Admin:
     if not isinstance(current_user, Admin) and not isinstance(current_user, SuperAdmin):
@@ -507,8 +543,10 @@ def get_create_contact_request_use_case(
     request_repo: ContactRequestRepository = Depends(get_contact_request_repo),
     user_repo: UserRepository = Depends(get_user_repo),
     audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+    lost_report_repo: LostReportRepository = Depends(get_lost_report_repo),
+    found_report_repo: FoundReportRepository = Depends(get_found_report_repo),
 ) -> CreateContactRequestUseCase:
-    return CreateContactRequestUseCase(request_repo, user_repo, audit_log_repo)
+    return CreateContactRequestUseCase(request_repo, user_repo, audit_log_repo, lost_report_repo, found_report_repo)
 
 
 def get_approve_contact_request_use_case(
