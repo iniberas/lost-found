@@ -8,8 +8,7 @@ from app.core.dependencies import (
     get_current_user,
     get_reject_contact_request_use_case,
     get_search_contact_requests_use_case,
-    get_lost_report_by_id_use_case,
-    get_found_report_by_id_use_case,
+    get_contact_access_use_case,
 )
 from app.domain.entities.contact_request import RequestStatus
 from app.domain.entities.user import User
@@ -21,10 +20,12 @@ from app.domain.use_cases.contact_request import (
     CreateContactRequestUseCase,
     RejectContactRequestUseCase,
     SearchContactRequestsUseCase,
+    GetContactAccessUseCase,
 )
 from app.schemas.contact_request import (
     ContactRequestResponse,
     CreateContactRequestPayload,
+    ContactAccessResponse,
 )
 from app.schemas.pagination import Paginated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -32,9 +33,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 router = APIRouter(prefix="/contact-requests", tags=["Contact Requests"])
 
 
-@router.post(
-    "", response_model=ContactRequestResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=ContactRequestResponse, status_code=status.HTTP_201_CREATED)
 async def create_contact_request(
     body: CreateContactRequestPayload,
     current_user: User = Depends(get_current_user),
@@ -55,12 +54,14 @@ async def create_contact_request(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
         )
 
-
 @router.get("", response_model=Paginated[ContactRequestResponse])
 async def get_my_contact_requests(
     request_type: str = Query(...),  # incoming atau outgoing
     status_filter: Optional[RequestStatus] = Query(None, alias="status"),
     report_id: Optional[uuid.UUID] = Query(None),
+    query: Optional[str] = Query(None, alias="search"),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -87,8 +88,10 @@ async def get_my_contact_requests(
         target_user_id=target_user_id,
         report_id=report_id,
         status=status_filter,
+        query=query,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
-
     return Paginated(
         items=[ContactRequestResponse.model_validate(req) for req in result.items],
         total_items=result.total_items,
@@ -147,3 +150,48 @@ async def cancel_request(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except (PermissionError, StateTransitionError) as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.get("/{request_id}/contact", response_model=ContactAccessResponse)
+async def get_contact_access(
+    request_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    use_case: GetContactAccessUseCase = Depends(
+        get_contact_access_use_case
+    ),
+):
+    try:
+        request = await use_case.execute(
+            actor=current_user,
+            request_id=request_id,
+        )
+
+        if request.responded_at is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Approved request missing responded_at",
+            )
+        
+        other_user = (
+            request.target_user
+            if request.requester.id == current_user.id
+            else request.requester
+        )
+
+        return ContactAccessResponse(
+            request_id=request.id,
+            granted_at=request.responded_at,
+            other_user=other_user,
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )

@@ -40,9 +40,7 @@ async def login(
     body: LoginUserRequest,
     use_case: LoginUserUseCase = Depends(get_login_use_case),
 ):
-    print("HAHIHIAIHAHDADHIA")
     try:
-        print(body)
         token_dict = await use_case.execute(email=body.email, password=body.password)
         return TokenResponse(**token_dict)
     except ValueError as e:

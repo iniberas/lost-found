@@ -72,6 +72,8 @@ class CreateContactRequestUseCase:
             message=message,
         )
 
+        print("MESSAGEEEEEEEEEEEE dari request: " + str(request.message))
+
         await self.request_repo.save(request)
 
         log = AuditLog.new_log(
@@ -182,8 +184,15 @@ class CancelContactRequestUseCase:
 
 
 class SearchContactRequestsUseCase:
-    def __init__(self, repo: IContactRequestRepository):
+    def __init__(
+        self,
+        repo: IContactRequestRepository,
+        lost_report_repo: ILostReportRepository,
+        found_report_repo: IFoundReportRepository,
+    ):
         self.repo = repo
+        self.lost_report_repo = lost_report_repo
+        self.found_report_repo = found_report_repo
 
     async def execute(
         self,
@@ -193,6 +202,7 @@ class SearchContactRequestsUseCase:
         target_user_id: Optional[uuid.UUID] = None,
         report_id: Optional[uuid.UUID] = None,
         status: Optional[RequestStatus] = None,
+        query: Optional[str] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> Paginated:
@@ -202,22 +212,77 @@ class SearchContactRequestsUseCase:
             target_user_id=target_user_id,
             report_id=report_id,
             status=status,
+            query=query,
             sort_by=sort_by,
             sort_order=sort_order,
             limit=limit,
             offset=offset,
         )
+
+        enriched_items = []
+        for req in items:
+            report = None
+            if req.report_type == "lost":
+                report = await self.lost_report_repo.get_by_id(
+                    req.report_id
+                )
+            elif req.report_type == "found":
+                report = await self.found_report_repo.get_by_id(
+                    req.report_id
+                )
+            req.report_title = report.title if report else None
+            req.report_description = (
+                report.description if report else None
+            )
+            enriched_items.append(req)
+
         total = await self.repo.count_search(
             requester_id=requester_id,
             target_user_id=target_user_id,
             report_id=report_id,
             status=status,
+            query=query,
         )
 
         return Paginated(
-            items=items,
+            items=enriched_items,
             total_items=total,
             current_page=page,
             total_pages=math.ceil(total / limit) if total > 0 else 1,
             limit=limit,
         )
+
+
+class GetContactAccessUseCase:
+    def __init__(
+        self,
+        request_repo: IContactRequestRepository,
+    ):
+        self.request_repo = request_repo
+
+    async def execute(
+        self,
+        actor: User,
+        request_id: uuid.UUID,
+    ):
+        request = await self.request_repo.get_by_id(request_id)
+
+        if not request:
+            raise ValueError("Contact request not found")
+
+        is_participant = (
+            request.requester.id == actor.id
+            or request.target_user.id == actor.id
+        )
+
+        if not is_participant:
+            raise PermissionError(
+                "You do not have access to this contact request"
+            )
+
+        if request.status != RequestStatus.APPROVED:
+            raise PermissionError(
+                "Contact request has not been approved"
+            )
+
+        return request

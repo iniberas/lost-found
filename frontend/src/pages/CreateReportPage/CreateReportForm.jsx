@@ -126,6 +126,7 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 	const validateForm = () => {
 		if (
 			!formData.title ||
+			!formData.description ||
 			!formData.incident_date ||
 			!formData.location_name ||
 			formData.category_ids.length === 0

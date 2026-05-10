@@ -6,10 +6,11 @@ from app.domain.entities.user import Admin, SuperAdmin, User
 from app.domain.entities.report import ReportType
 from app.domain.interfaces.contact_request import IContactRequestRepository
 from app.infrastructure.database.models.contact_request import ContactRequestModel
+from app.infrastructure.database.models.report import LostReportModel, FoundReportModel
 from app.infrastructure.database.models.user import UserModel, UserRole
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 
 def _user_from_model(m: UserModel) -> User:
@@ -94,18 +95,74 @@ class ContactRequestRepository(IContactRequestRepository):
         target_user_id: Optional[uuid.UUID] = None,
         report_id: Optional[uuid.UUID] = None,
         status: Optional[RequestStatus] = None,
+        query: Optional[str] = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
         limit: int = 20,
         offset: int = 0,
     ) -> List[ContactRequest]:
-        stmt = select(ContactRequestModel).options(
-            selectinload(ContactRequestModel.requester),
-            selectinload(ContactRequestModel.target_user),
+        requester_alias = aliased(UserModel)
+        target_alias = aliased(UserModel)
+
+        lost_alias = aliased(LostReportModel)
+        found_alias = aliased(FoundReportModel)
+
+        stmt = (
+            select(ContactRequestModel)
+
+            # requester
+            .join(
+                requester_alias,
+                ContactRequestModel.requester_id == requester_alias.id,
+            )
+
+            # target
+            .join(
+                target_alias,
+                ContactRequestModel.target_user_id == target_alias.id,
+            )
+
+            # lost report
+            .outerjoin(
+                lost_alias,
+                and_(
+                    ContactRequestModel.report_id == lost_alias.id,
+                    ContactRequestModel.report_type == "lost",
+                )
+            )
+
+            # found report
+            .outerjoin(
+                found_alias,
+                and_(
+                    ContactRequestModel.report_id == found_alias.id,
+                    ContactRequestModel.report_type == "found",
+                )
+            )
+
+            .options(
+                selectinload(ContactRequestModel.requester),
+                selectinload(ContactRequestModel.target_user),
+            )
         )
         stmt = self._apply_filters(
             stmt, requester_id, target_user_id, report_id, status
         )
+
+        if query:
+            search_term = f"%{query}%"
+
+            stmt = stmt.where(
+                or_(
+                    ContactRequestModel.message.ilike(search_term),
+
+                    requester_alias.name.ilike(search_term),
+                    target_alias.name.ilike(search_term),
+
+                    lost_alias.title.ilike(search_term),
+                    found_alias.title.ilike(search_term),
+                )
+            )
 
         col = getattr(ContactRequestModel, sort_by, ContactRequestModel.created_at)
         stmt = stmt.order_by(col.asc() if sort_order == "asc" else col.desc())
@@ -113,20 +170,77 @@ class ContactRequestRepository(IContactRequestRepository):
         stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return [self._to_entity(m) for m in result.scalars().all()]
-
+    
     async def count_search(
         self,
         requester_id: Optional[uuid.UUID] = None,
         target_user_id: Optional[uuid.UUID] = None,
         report_id: Optional[uuid.UUID] = None,
         status: Optional[RequestStatus] = None,
+        query: Optional[str] = None,
     ) -> int:
-        stmt = select(func.count()).select_from(ContactRequestModel)
-        stmt = self._apply_filters(
-            stmt, requester_id, target_user_id, report_id, status
+        requester_alias = aliased(UserModel)
+        target_alias = aliased(UserModel)
+
+        lost_alias = aliased(LostReportModel)
+        found_alias = aliased(FoundReportModel)
+
+        stmt = (
+            select(func.count())
+            .select_from(ContactRequestModel)
+
+            .join(
+                requester_alias,
+                ContactRequestModel.requester_id == requester_alias.id,
+            )
+
+            .join(
+                target_alias,
+                ContactRequestModel.target_user_id == target_alias.id,
+            )
+
+            .outerjoin(
+                lost_alias,
+                and_(
+                    ContactRequestModel.report_id == lost_alias.id,
+                    ContactRequestModel.report_type == "lost",
+                )
+            )
+
+            .outerjoin(
+                found_alias,
+                and_(
+                    ContactRequestModel.report_id == found_alias.id,
+                    ContactRequestModel.report_type == "found",
+                )
+            )
         )
 
+        stmt = self._apply_filters(
+            stmt,
+            requester_id,
+            target_user_id,
+            report_id,
+            status,
+        )
+
+        if query:
+            search_term = f"%{query}%"
+
+            stmt = stmt.where(
+                or_(
+                    ContactRequestModel.message.ilike(search_term),
+
+                    requester_alias.name.ilike(search_term),
+                    target_alias.name.ilike(search_term),
+
+                    lost_alias.title.ilike(search_term),
+                    found_alias.title.ilike(search_term),
+                )
+            )
+
         result = await self.session.execute(stmt)
+
         return result.scalar_one()
 
     def _apply_filters(self, stmt, requester_id, target_user_id, report_id, status):

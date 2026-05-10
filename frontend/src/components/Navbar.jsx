@@ -82,7 +82,7 @@ const Navbar = ({ user, handleLogout }) => {
                   <button 
                     onClick={() => {
                       setIsDropdownOpen(false);
-                      navigate('/my-requests');
+                      navigate('/my-requests?tab=incoming');
                     }} 
                     className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors font-medium"
                   >

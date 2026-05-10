@@ -36,6 +36,7 @@ import { IPB_COLORS } from "../../constants/colors";
 import ConfirmModal from "../../components/ConfirmModal";
 import ResolveModal from "./ResolveModal";
 import ContactRequestModal from "./ContactRequestModal";
+import ViewDetailModal, { CopyButton } from "../../components/ViewDetailModal";
 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -95,9 +96,17 @@ export default function ReportDetailPage({ user, handleLogout }) {
 	const [submittingContact, setSubmittingContact] = useState(false);
 
 	const [existingContactRequest, setExistingContactRequest] = useState(null);
+	const [incomingRequestCount, setIncomingRequestCount] = useState(0);
 	const [checkingContactRequest, setCheckingContactRequest] = useState(true);
 
 	const [showRequestMessage, setShowRequestMessage] = useState(false);
+
+	// contact info modal state
+	const [contactInfoModal, setContactInfoModal] = useState({
+		open: false,
+		loading: false,
+		data: null,
+	});
 
 	const fetchExistingContactRequest = async () => {
 		try {
@@ -108,7 +117,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 			const params = new URLSearchParams({
 				request_type: "outgoing",
 				report_id: report.id,
-				status: "pending",
 				limit: 1,
 			});
 
@@ -141,6 +149,83 @@ export default function ReportDetailPage({ user, handleLogout }) {
 		}
 	};
 
+	const fetchIncomingRequests = async () => {
+		try {
+			const token = localStorage.getItem("access_token");
+
+			const params = new URLSearchParams({
+				request_type: "incoming",
+				report_id: report.id,
+				status: "pending",
+				limit: 1,
+			});
+
+			const response = await fetch(
+				`${API_URL}/api/v1/contact-requests?${params.toString()}`,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error();
+			}
+
+			const data = await response.json();
+
+			setIncomingRequestCount(data.total_items || 0);
+		} catch (err) {
+			console.error(err);
+		}
+	};
+
+	const handleOpenContact = async (requestId) => {
+		try {
+			setContactInfoModal({
+				open: true,
+				loading: true,
+				data: null,
+			});
+
+			const token = localStorage.getItem("access_token");
+
+			const response = await fetch(
+				`${API_URL}/api/v1/contact-requests/${requestId}/contact`,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				}
+			);
+
+			const result = await response
+				.json()
+				.catch(() => ({}));
+
+			if (!response.ok) {
+				throw new Error(
+					result.detail || "Failed to fetch contact"
+				);
+			}
+
+			setContactInfoModal({
+				open: true,
+				loading: false,
+				data: result,
+			});
+		} catch (err) {
+			showToast(err.message, "error");
+
+			setContactInfoModal({
+				open: false,
+				loading: false,
+				data: null,
+			});
+		}
+	};
+
 	const defaultCenter = {
 		lat: -6.5921,
 		lng: 106.7942,
@@ -158,7 +243,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 				location.state.toast.type
 			);
 
-			// hapus state biar ga muncul lagi pas refresh
 			navigate(
 				`${location.pathname}${location.search}`,
 				{ replace: true }
@@ -210,9 +294,10 @@ export default function ReportDetailPage({ user, handleLogout }) {
 	}, [id, isFound]);
 
 	useEffect(() => {
-		if (!report || isOwnReport) return;
-
-		fetchExistingContactRequest();
+		if (report) {
+			if (isOwnReport) fetchIncomingRequests();
+			else fetchExistingContactRequest();
+		}
 	}, [report]);
 
 
@@ -250,9 +335,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 	}, [id, isFound]);
 
 	const isOwnReport = report?.is_owner;
-	// user &&
-	// report &&
-	// user.id === report.reporter?.id;
 
 	const formatDate = (dateStr) => {
 		if (!dateStr) return "-";
@@ -331,7 +413,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 			let response;
 
-			// FOUND REPORT
 			if (isFound) {
 				const formData = new FormData();
 
@@ -347,19 +428,14 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					},
 				);
 
-
 				response = await fetch(`${API_URL}${endpoint}`, {
 					method: "POST",
 					headers: {
 						Authorization: `Bearer ${token}`,
 					},
 					body: formData,
-				},
-				);
-			}
-
-			// LOST REPORT
-			else {
+				});
+			} else {
 				response = await fetch(
 					`${API_URL}${endpoint}`,
 					{
@@ -514,8 +590,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					{/* TOP */}
 					<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 						<div className="space-y-3">
-
-							{/* PAGE HEADER */}
 							<PageHeader title="Report Details" />
 						</div>
 
@@ -557,7 +631,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 									/>
 								</div>
 
-								{/* TITLE*/}
+								{/* TITLE */}
 								<div className="space-y-3">
 									<div>
 										<h1 className="text-2xl font-black text-gray-800 leading-tight">
@@ -785,7 +859,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 											(cat) => (
 												<span
 													key={cat.id}
-													// className="px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 border border-blue-200 text-blue-700"
 													className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
 												>
 													{cat.name}
@@ -859,6 +932,41 @@ export default function ReportDetailPage({ user, handleLogout }) {
 									<div className="flex flex-col gap-3">
 										{isOwnReport ? (
 											<>
+												{incomingRequestCount > 0 && (
+													<div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 shadow-sm">
+														<div className="flex items-start gap-3">
+															<div className="p-2 rounded-xl bg-yellow-100">
+																<UserIcon
+																	size={18}
+																	className="text-yellow-700"
+																/>
+															</div>
+
+															<div className="flex-1">
+																<h4 className="font-bold text-yellow-800">
+																	Ada {incomingRequestCount} contact request
+																	masuk
+																</h4>
+
+																<p className="text-sm text-yellow-700 mt-1">
+																	Seseorang ingin menghubungimu terkait
+																	laporan ini.
+																</p>
+
+																<button
+																	onClick={() =>
+																		navigate(
+																			`/my-requests?tab=incoming&search=${encodeURIComponent(report.title || "")}`
+																		)
+																	}
+																	className="mt-3 px-4 py-2 rounded-xl bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold transition-colors"
+																>
+																	Lihat Requests
+																</button>
+															</div>
+														</div>
+													</div>
+												)}
 												<button
 													onClick={() =>
 														navigate(
@@ -899,36 +1007,135 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													</div>
 												) : existingContactRequest ? (
 													<div className="space-y-3">
-														<div className="w-full py-3 px-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm shadow-sm">
-															<p className="font-semibold">
-																Kamu sudah mengirim contact request.
-															</p>
+														{/* PENDING */}
+														{existingContactRequest.status === "pending" && (
+															<>
+																<div className="w-full py-3 px-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm shadow-sm">
+																	<p className="font-semibold">
+																		Kamu sudah mengirim contact request.
+																	</p>
 
-															<p className="text-xs mt-1 text-yellow-600">
-																Menunggu respon dari pembuat laporan.
-															</p>
+																	<p className="text-xs mt-1 text-yellow-600">
+																		Menunggu respon dari pembuat laporan.
+																	</p>
 
-															{showRequestMessage &&
-																existingContactRequest.message && (
-																	<div className="mt-3 p-3 rounded-lg bg-white/70 border border-yellow-100 text-gray-700 text-sm whitespace-pre-wrap">
-																		{existingContactRequest.message}
-																	</div>
+																	{showRequestMessage &&
+																		existingContactRequest.message && (
+																			<div className="mt-3 p-3 rounded-lg bg-white/70 border border-yellow-100 text-gray-700 text-sm whitespace-pre-wrap">
+																				{existingContactRequest.message}
+																			</div>
+																		)}
+																</div>
+
+																{existingContactRequest.message && (
+																	<button
+																		onClick={() =>
+																			setShowRequestMessage(
+																				!showRequestMessage
+																			)
+																		}
+																		className="w-full py-2 rounded-xl border border-yellow-200 bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 transition-colors"
+																	>
+																		{showRequestMessage
+																			? "Hide Message"
+																			: "Show Message"}
+																	</button>
 																)}
-														</div>
+															</>
+														)}
 
-														{existingContactRequest.message && (
-															<button
-																onClick={() =>
-																	setShowRequestMessage(
-																		!showRequestMessage
-																	)
-																}
-																className="w-full py-2 rounded-xl border border-yellow-200 bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 transition-colors"
-															>
-																{showRequestMessage
-																	? "Hide Message"
-																	: "Show Message"}
-															</button>
+														{/* APPROVED */}
+														{existingContactRequest.status === "approved" && (
+															<>
+																<div className="w-full py-3 px-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm shadow-sm">
+																	<p className="font-semibold">
+																		Contact request disetujui.
+																	</p>
+
+																	<p className="text-xs mt-1 text-green-600">
+																		Kamu sekarang bisa melihat kontak pembuat laporan.
+																	</p>
+																</div>
+
+																<button
+																	onClick={() =>
+																		handleOpenContact(
+																			existingContactRequest.id
+																		)
+																	}
+																	className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
+																	style={{
+																		backgroundColor:
+																			IPB_COLORS.blue.primary,
+																	}}
+																>
+																	Lihat Kontak
+																</button>
+															</>
+														)}
+
+														{/* REJECTED — allow resend */}
+														{existingContactRequest.status === "rejected" && (
+															<div className="space-y-3">
+																<div className="w-full py-3 px-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm shadow-sm">
+																	<p className="font-semibold">
+																		Contact request ditolak.
+																	</p>
+
+																	<p className="text-xs mt-1 text-red-600">
+																		Kamu sudah pernah membuat contact request, tapi ditolak oleh pembuat laporan.{" "}
+																		<button
+																			onClick={() =>
+																				navigate(
+																					`/my-requests?tab=outgoing&search=${encodeURIComponent(report.title || "")}`
+																				)
+																			}
+																			className="underline font-semibold hover:text-red-800 transition-colors"
+																		>
+																			Lihat selengkapnya
+																		</button>
+																	</p>
+																</div>
+
+																<button
+																	onClick={() => setShowContactModal(true)}
+																	className="w-full py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2"
+																>
+																	Kirim Ulang Request
+																</button>
+															</div>
+														)}
+
+														{/* CANCELED — allow resend */}
+														{existingContactRequest.status === "canceled" && (
+															<div className="space-y-3">
+																<div className="w-full py-3 px-4 rounded-xl bg-gray-50 border border-gray-200 text-gray-700 text-sm shadow-sm">
+																	<p className="font-semibold">
+																		Contact request dibatalkan.
+																	</p>
+
+																	<p className="text-xs mt-1 text-gray-500">
+																		Kamu sudah pernah membuat contact request, tapi dibatalkan.{" "}
+																		<button
+																			onClick={() =>
+																				navigate(
+																					`/my-requests?tab=outgoing&search=${encodeURIComponent(report.title || "")}`
+																				)
+																			}
+																			className="underline font-semibold hover:text-gray-700 transition-colors"
+																		>
+																			Lihat selengkapnya
+																		</button>
+																	</p>
+																</div>
+
+																<button
+																	onClick={() => setShowContactModal(true)}
+																	className="w-full py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2"
+																>
+																	Kirim Ulang Request
+																</button>
+															</div>
 														)}
 													</div>
 												) : (
@@ -967,13 +1174,12 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					confirmText="Confirm"
 					cancelText="Cancel"
 					loading={resolving}
-
 					icon={CheckCircle2}
 					iconClassName="text-green-600"
 					confirmButtonClassName="bg-green-600 hover:bg-green-700"
 				/>
 
-				{/* IMAGE PREVIEW MODAL (buat found report) */}
+				{/* IMAGE PREVIEW MODAL */}
 				<ImagePreviewModal
 					open={previewOpen}
 					photos={report.photos}
@@ -997,6 +1203,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 						)
 					}
 				/>
+
 				<ConfirmModal
 					open={showDeleteModal}
 					onClose={() => setShowDeleteModal(false)}
@@ -1008,7 +1215,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					message="Laporan yang sudah dihapus tidak dapat dipulihkan lagi."
 					confirmText="Delete"
 					cancelText="Cancel"
-
 					icon={Trash2}
 					iconClassName="text-red-600"
 					confirmButtonClassName="bg-red-600 hover:bg-red-700"
@@ -1041,6 +1247,71 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					isFound={isFound}
 				/>
 			</div>
+
+			{/* CONTACT INFO MODAL — using ViewDetailModal */}
+			<ViewDetailModal
+				open={contactInfoModal.open}
+				onClose={() =>
+					setContactInfoModal({ open: false, loading: false, data: null })
+				}
+				title="Kontak Pengguna"
+				icon={UserIcon}
+				iconClassName="text-blue-500"
+			>
+				{contactInfoModal.loading ? (
+					<div className="py-10 flex justify-center">
+						<div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+					</div>
+				) : (
+					<div className="space-y-4">
+						{/* NAME */}
+						<div>
+							<p className="text-xs text-gray-400 mb-1">Name</p>
+							<div className="flex items-center gap-2">
+								<div className="p-2 bg-gray-50 rounded-lg shrink-0">
+									<UserIcon size={15} className="text-gray-400" />
+								</div>
+								<p className="font-medium text-sm text-gray-800 flex-1">
+									{contactInfoModal.data?.other_user?.name || "-"}
+								</p>
+							</div>
+						</div>
+
+						{/* EMAIL */}
+						<div>
+							<p className="text-xs text-gray-400 mb-1">Email</p>
+							<div className="flex items-center gap-2">
+								<div className="p-2 bg-gray-50 rounded-lg shrink-0">
+									<Mail size={15} className="text-gray-400" />
+								</div>
+								<p className="font-medium text-sm text-gray-800 flex-1 truncate">
+									{contactInfoModal.data?.other_user?.email || "-"}
+								</p>
+								{contactInfoModal.data?.other_user?.email && (
+									<CopyButton value={contactInfoModal.data.other_user.email} />
+								)}
+							</div>
+						</div>
+
+						{/* PHONE */}
+						<div>
+							<p className="text-xs text-gray-400 mb-1">Phone number</p>
+							<div className="flex items-center gap-2">
+								<div className="p-2 bg-gray-50 rounded-lg shrink-0">
+									<Phone size={15} className="text-gray-400" />
+								</div>
+								<p className="font-medium text-sm text-gray-800 flex-1">
+									{contactInfoModal.data?.other_user?.phone_number || "-"}
+								</p>
+								{contactInfoModal.data?.other_user?.phone_number && (
+									<CopyButton value={contactInfoModal.data.other_user.phone_number} />
+								)}
+							</div>
+						</div>
+					</div>
+				)}
+			</ViewDetailModal>
+
 			<Toast
 				show={Boolean(toast)}
 				message={toast?.message}

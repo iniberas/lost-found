@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { replace, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   UploadCloud,
   X,
@@ -48,7 +48,6 @@ export default function UpdateReportForm({ user, showToast }) {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -57,14 +56,21 @@ export default function UpdateReportForm({ user, showToast }) {
   useEffect(() => {
     const fetchReport = async () => {
       setLoading(true);
-      setError('');
-      try {
-        const endpoint =
-          activeTab === 'found'
-            ? `/api/v1/found-reports/${id}`
-            : `/api/v1/lost-reports/${id}`;
+        try {
+        const token = localStorage.getItem('access_token');
+        const endpoint = (activeTab === 'found')
+					? `/api/v1/found-reports/${id}`
+					: `/api/v1/lost-reports/${id}`;
 
-        const response = await fetch(`${API_URL}${endpoint}`);
+				const response = await fetch(
+					`${API_URL}${endpoint}`,
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					},
+				);
+
         if (!response.ok) {
           const result = await response.json();
           throw new Error(result.detail || 'Gagal mengambil data laporan');
@@ -72,8 +78,9 @@ export default function UpdateReportForm({ user, showToast }) {
 
         const data = await response.json();
 
-        if (user && data.reporter.id !== user.id) {
+        if (!data.is_owner) {
           navigate("/home", {
+            replace: true,
             state: {
               toast: {
                 type: "warning",
@@ -83,19 +90,19 @@ export default function UpdateReportForm({ user, showToast }) {
           });
           return;
         }
-        
-				if (data.report_status?.toLowerCase() === "resolved") {
-					navigate(`/report/${id}?type=${activeTab}`, {
-						replace: true,
-						state: {
-							toast: {
-								type: "error",
-								message: "Laporan yang sudah resolved tidak dapat diedit"
-							},
-						},
-					});
-					return;
-				}
+
+        if (data.report_status?.toLowerCase() === "resolved") {
+          navigate(`/report/${id}?type=${activeTab}`, {
+            replace: true,
+            state: {
+              toast: {
+                type: "error",
+                message: "Laporan yang sudah resolved tidak dapat diedit"
+              },
+            },
+          });
+          return;
+        }
 
         const dateStr = data.incident_date
           ? new Date(data.incident_date).toISOString().slice(0, 16)
@@ -118,21 +125,37 @@ export default function UpdateReportForm({ user, showToast }) {
           setMapCenter(pos);
         }
       } catch (err) {
-        setError(err.message);
+        showToast(err.message, "error");
       } finally {
         setLoading(false);
       }
     };
 
-    const fetchCategories = async () => {
-      // ... (kode fetch categories kamu sudah bener)
+		const fetchCategories = async () => {
+			try {
+				const token = localStorage.getItem("access_token");
+				const response = await fetch(
+					`${API_URL}/api/v1/categories`,
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					},
+				);
+				if (response.ok) {
+					const data = await response.json();
+					setCategories(data.filter(cat => cat.is_active));
+				}
+			} catch (error) {
+				console.error("Gagal mengambil kategori:", error);
+			}
     };
+    fetchCategories();
 
     if (id && user) { // Pastikan user sudah ada sebelum fetch
       fetchReport();
       fetchCategories();
     } else {
-      console.log(user)
+      showToast("User tidak ditemukan", "error")
+      // console.log(user)
     }
   }, [id, activeTab, user, navigate]); // Tambahkan user & navigate ke dependency
 
@@ -166,7 +189,7 @@ export default function UpdateReportForm({ user, showToast }) {
 
     const totalPhotos = existingPhotos.length + newPhotos.length + files.length;
     if (totalPhotos > 5) {
-			showToast("Maksimal 5 foto diperbolehkan.", "warning");
+      showToast("Maksimal 5 foto diperbolehkan.", "warning");
       return;
     }
 
@@ -183,7 +206,7 @@ export default function UpdateReportForm({ user, showToast }) {
 
   const handleAskLocation = () => {
     if (!navigator.geolocation) {
-			showToast("Browser Anda tidak mendukung fitur Geolocation.", "warning");
+      showToast("Browser Anda tidak mendukung fitur Geolocation.", "warning");
       return;
     }
     setLocationStatus('Meminta izin...');
@@ -201,7 +224,7 @@ export default function UpdateReportForm({ user, showToast }) {
         let errorMsg = 'Gagal mendapatkan lokasi.';
         if (error.code === error.PERMISSION_DENIED)
           errorMsg = 'Izin lokasi ditolak oleh browser.';
-				showToast(errorMsg, "error");
+        showToast(errorMsg, "error");
         setLocationStatus('');
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -211,7 +234,7 @@ export default function UpdateReportForm({ user, showToast }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    setError('');
+    // setError('');
 
     try {
       const token = localStorage.getItem('access_token');
@@ -261,15 +284,16 @@ export default function UpdateReportForm({ user, showToast }) {
       }
 
       navigate(`/report/${id}?type=${activeTab}`, {
-				state: {
-					toast: {
-						type: "success",
-						message: "Perubahan berhasil disimpan!",
-					},
-				},
-			});
+        replace: true,
+        state: {
+          toast: {
+            type: "success",
+            message: "Perubahan berhasil disimpan!",
+          },
+        },
+      });
     } catch (err) {
-      setError(err.message);
+      showToast(err.message, "error");
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
@@ -558,7 +582,7 @@ export default function UpdateReportForm({ user, showToast }) {
         <button
           type="button"
           disabled={submitting}
-          onClick={() => navigate(`/report/${id}?type=${activeTab}`)}
+          onClick={() => navigate(`/report/${id}?type=${activeTab}`, {replace: true})}
           className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50"
         >
           Batal
