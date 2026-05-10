@@ -21,7 +21,7 @@ import {
 import AdminDashboardLayout from "../../../layouts/AdminDashboard";
 import PageHeader from "../../../components/admin/PageHeader";
 import StatusBadge from "../../../components/admin/StatusBadge";
-import { LocationPicker } from "../../../components/admin/LocationPicker";
+import { LocationPicker } from "../../../components/LocationPicker";
 import { IPB_COLORS, ADMIN_COLORS } from "../../../constants/colors";
 import { adminFetch } from "../../../utils/adminApi";
 
@@ -30,6 +30,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
 const API_URL = "http://127.0.0.1:8000";
+const DEFAULT_CENTER = [-6.5607, 106.7265];
 
 const markerIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -143,8 +144,7 @@ export default function AdminReportDetailPage({ user }) {
   const [photosToRemove, setPhotosToRemove] = useState([]);
   const [photosToAdd, setPhotosToAdd] = useState([]);
   const [newPhotoPreviews, setNewPhotoPreviews] = useState([]);
-  const defaultCenter = { lat: -6.5921, lng: 106.7942 };
-  const [mapCenter, setMapCenter] = useState(defaultCenter);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [locationStatus, setLocationStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -553,7 +553,7 @@ export default function AdminReportDetailPage({ user }) {
                 <div className="h-[400px] w-full bg-gray-100 z-0 relative">
                   <MapContainer
                     center={mapCenter}
-                    zoom={13}
+                    zoom={16}
                     scrollWheelZoom={true}
                     style={{ height: "100%", width: "100%", zIndex: 0 }}
                   >

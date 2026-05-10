@@ -69,6 +69,7 @@ export function useAdminTable({
   return {
     // data
     items,
+    setItems,
     totalPages,
     isLoading,
     refresh: load,

@@ -427,7 +427,7 @@ class UpdateFoundReportUseCase:
 
     async def execute(
         self,
-        actor: User,
+        # actor: User, # eh ini emang gaguna apa gimana dahh?????
         user: User,
         report_id: uuid.UUID,
         title: Optional[str] = None,

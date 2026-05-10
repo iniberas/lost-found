@@ -37,3 +37,23 @@ export const ADMIN_COLORS = {
   chartGrid: "#d2dbe9",
   chartAxis: "#9ca3af",
 };
+
+
+// sama kek atmin wleeeeee 👅👅👅
+export const USER_COLORS = {
+  // Global & Text
+  background: "#f3f4ff",
+  headingText: IPB_COLORS.blue.darkBrand,
+  white: "#ffffff",
+
+  // Layout Components
+  navbarBg: IPB_COLORS.blue[500],
+  sidebarBg: IPB_COLORS.blue.darkBrand,
+  sidebarActiveText: IPB_COLORS.blue.darkBrand,
+
+  // Chart Colors
+  chartLost: IPB_COLORS.blue.primary,
+  chartFound: IPB_COLORS.blue.primary,
+  chartGrid: "#d2dbe9",
+  chartAxis: "#9ca3af",
+};

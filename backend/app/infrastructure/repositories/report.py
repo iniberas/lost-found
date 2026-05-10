@@ -200,6 +200,7 @@ class LostReportRepository(ILostReportRepository):
             location_point,
             location_radius,
         )
+        stmt = stmt.distinct()
         stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
         stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
@@ -236,6 +237,7 @@ class LostReportRepository(ILostReportRepository):
     ) -> List[LostReport]:
         stmt = (
             select(LostReportModel)
+            .distinct()
             .options(
                 selectinload(LostReportModel.reporter),
                 selectinload(LostReportModel.categories),
@@ -308,7 +310,7 @@ class LostReportRepository(ILostReportRepository):
             target_geom = _point_to_geography(location_point)
             stmt = stmt.where(
                 ST_Distance(LostReportModel.location_point, target_geom)
-                <= location_radius
+                <= (location_radius * 1000) # kata om chatgpt defaultnya meter, jadi dikali 1000 (soalnya inputnya km)
             )
         return stmt
 
@@ -481,6 +483,7 @@ class FoundReportRepository(IFoundReportRepository):
             found_status,
             storage_location_id,
         )
+        stmt = stmt.distinct()
         stmt = self._apply_sort(stmt, sort_by, sort_order, location_point)
         stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
@@ -521,6 +524,7 @@ class FoundReportRepository(IFoundReportRepository):
     ) -> List[FoundReport]:
         stmt = (
             select(FoundReportModel)
+            .distinct()
             .options(
                 selectinload(FoundReportModel.reporter),
                 selectinload(FoundReportModel.holder),

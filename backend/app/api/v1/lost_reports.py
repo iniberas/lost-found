@@ -6,6 +6,7 @@ from app.core.dependencies import (
     get_create_lost_report_form,
     get_create_lost_report_use_case,
     get_current_user,
+    get_current_user_optional,
     get_delete_lost_report_use_case,
     get_lost_report_by_id_use_case,
     get_potential_found_reports_use_case,
@@ -55,11 +56,14 @@ async def search_lost_reports(
     report_status: Optional[List[ReportStatus]] = Query(None),
     incident_date_from: Optional[datetime] = Query(None),
     incident_date_to: Optional[datetime] = Query(None),
+    category_ids: Optional[List[uuid.UUID]] = Query(None),
+    user_ids: Optional[List[uuid.UUID]] = Query(None),
     latitude: Optional[float] = Query(None),
     longitude: Optional[float] = Query(None),
     radius_km: Optional[float] = Query(None),
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     use_case: SearchLostReportsUseCase = Depends(get_search_lost_reports_use_case),
 ):
     location_point = (
@@ -74,13 +78,24 @@ async def search_lost_reports(
         report_status=report_status,
         incident_date_from=incident_date_from,
         incident_date_to=incident_date_to,
+        category_ids=category_ids,
+        user_ids=user_ids,
         location_point=location_point,
         location_radius=radius_km,
         sort_by=sort_by,
         sort_order=sort_order,
     )
+    items = []
+    for r in result.items:
+        response = LostReportResponse.model_validate(r)
+        response.is_owner = (
+            current_user is not None
+            and r.reporter.id == current_user.id
+        )
+        items.append(response)
+
     return Paginated(
-        items=[LostReportResponse.model_validate(r) for r in result.items],
+        items=items,
         total_items=result.total_items,
         current_page=result.current_page,
         total_pages=result.total_pages,
@@ -91,11 +106,15 @@ async def search_lost_reports(
 @router.get("/{report_id}", response_model=LostReportResponse)
 async def get_lost_report(
     report_id: uuid.UUID,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     use_case: GetLostReportByIdUseCase = Depends(get_lost_report_by_id_use_case),
 ):
     try:
         report = await use_case.execute(report_id)
-        return LostReportResponse.model_validate(report)
+        # return LostReportResponse.model_validate(report)
+        response = LostReportResponse.model_validate(report)
+        response.is_owner = ( current_user is not None and report.reporter.id == current_user.id )
+        return response
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -218,12 +237,21 @@ async def delete_lost_report(
 @router.get("/{report_id}/potential-matches", response_model=List[FoundReportResponse])
 async def potential_matches(
     report_id: uuid.UUID,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     use_case: FindPotentialFoundReportsUseCase = Depends(
         get_potential_found_reports_use_case
     ),
 ):
     try:
         reports = await use_case.execute(report_id)
-        return [FoundReportResponse.model_validate(r) for r in reports]
+        responses = []
+        for report in reports:
+            response = FoundReportResponse.model_validate(report)
+            response.is_owner = (
+                current_user is not None
+                and report.reporter.id == current_user.id
+            )
+            responses.append(response)
+        return responses
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
