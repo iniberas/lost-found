@@ -2,49 +2,46 @@ import React from "react";
 import { MapPin, BadgeCheck } from "lucide-react";
 
 
-const ReportCard = ({ item, onClick }) => {
+const ReportCard = ({ item, onClick, compact = false }) => {
   return (
     <div
       className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex flex-col h-full font-poppins cursor-pointer"
-      // className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border flex flex-col h-full font-poppins cursor-pointer ${
-      //   item.is_owner
-      //     ? "border-blue-300 ring-2 ring-blue-100"
-      //     : "border-gray-100"
-      // }`}
       onClick={onClick}
     >
-      <div className="relative h-48 bg-gray-200">
-        {item.photos && item.photos.length > 0 ? (
-          <img
-            src={item.photos[0]}
-            alt={item.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium bg-gray-100">
-            No Image
-          </div>
-        )}
+      <div className="relative bg-gray-200">
+        <div className={compact ? "h-36" : "h-48"}>
+          {item.photos && item.photos.length > 0 ? (
+            <img
+              src={item.photos[0]}
+              alt={item.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium bg-gray-100">
+              No Image
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="p-5 space-y-2 flex-grow">
         <h3 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1">
           {item.title}
         </h3>
-         {item.is_owner && (
-    <div className="shrink-0 mt-0.5">
-      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-100">
-        <BadgeCheck
-          size={12}
-          className="text-blue-600"
-        />
+        {item.is_owner && (
+          <div className="shrink-0 mt-0.5">
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-100">
+              <BadgeCheck
+                size={12}
+                className="text-blue-600"
+              />
 
-        <span className="text-[10px] font-bold text-blue-700">
-          Punya lu bejir
-        </span>
-      </div>
-    </div>
-  )}
+              <span className="text-[10px] font-bold text-blue-700">
+                Punya lu bejir
+              </span>
+            </div>
+          </div>
+        )}
         <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
           {item.description}
         </p>

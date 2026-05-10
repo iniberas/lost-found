@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-export const useReports = (activeTab, userId = null, allStatus = false) => {
+export const useReports = (
+  activeTab,
+  userId = null,
+  allStatus = false,
+  filterLocation = null,
+  radiusKm = 5
+) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -21,19 +27,14 @@ export const useReports = (activeTab, userId = null, allStatus = false) => {
   // CATEGORY
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
-  
+
   // FETCH CATEGORY
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const token = localStorage.getItem("access_token");
         const response = await fetch(
           `${API_URL}/api/v1/categories`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+
         );
         if (response.ok) {
           const data = await response.json();
@@ -97,6 +98,24 @@ export const useReports = (activeTab, userId = null, allStatus = false) => {
         });
       }
 
+      // LOCATION
+      if (filterLocation) {
+        params.append(
+          "latitude",
+          filterLocation.lat
+        );
+
+        params.append(
+          "longitude",
+          filterLocation.lng
+        );
+
+        params.append(
+          "radius_km",
+          radiusKm.toString()
+        );
+      }
+
       // USER FILTER (untuk My Reports)
       if (userId) {
         params.append("user_ids", userId);
@@ -134,15 +153,7 @@ export const useReports = (activeTab, userId = null, allStatus = false) => {
 
   useEffect(() => {
     fetchReports();
-  }, [activeTab, pagination.current_page]);
-
-  const handleApplyFilter = () => {
-    setPagination((prev) => ({
-      ...prev,
-      current_page: 1,
-    }));
-    fetchReports(1);
-  };
+  }, [activeTab, pagination.current_page, filterLocation]);
 
   return {
     items,
@@ -159,6 +170,6 @@ export const useReports = (activeTab, userId = null, allStatus = false) => {
     categories,
     selectedCategories,
     setSelectedCategories,
-    handleApplyFilter,
+    fetchReports,
   };
 };

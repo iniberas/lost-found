@@ -14,6 +14,7 @@ import { MapContainer, TileLayer } from 'react-leaflet';
 import { LocationPicker } from '../../components/LocationPicker';
 import { IPB_COLORS } from "../../constants/colors";
 
+const DEFAULT_CENTER = [-6.5607, 106.7265];
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function UpdateReportForm({ user, showToast }) {
@@ -41,8 +42,7 @@ export default function UpdateReportForm({ user, showToast }) {
   const [newPhotosPreviews, setNewPhotosPreviews] = useState([]);
 
   // Map state
-  const defaultCenter = { lat: -6.5921, lng: 106.7942 };
-  const [mapCenter, setMapCenter] = useState(defaultCenter);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [locationStatus, setLocationStatus] = useState('');
 
@@ -133,12 +133,8 @@ export default function UpdateReportForm({ user, showToast }) {
 
 		const fetchCategories = async () => {
 			try {
-				const token = localStorage.getItem("access_token");
 				const response = await fetch(
 					`${API_URL}/api/v1/categories`,
-					{
-						headers: { Authorization: `Bearer ${token}` },
-					},
 				);
 				if (response.ok) {
 					const data = await response.json();
@@ -550,7 +546,7 @@ export default function UpdateReportForm({ user, showToast }) {
               <div className="h-[400px] w-full bg-gray-100 z-0 relative">
                 <MapContainer
                   center={mapCenter}
-                  zoom={13}
+                  zoom={16}
                   scrollWheelZoom={true}
                   style={{ height: '100%', width: '100%' }}
                 >
@@ -582,7 +578,7 @@ export default function UpdateReportForm({ user, showToast }) {
         <button
           type="button"
           disabled={submitting}
-          onClick={() => navigate(`/report/${id}?type=${activeTab}`, {replace: true})}
+          onClick={() => navigate(-1)}
           className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50"
         >
           Batal

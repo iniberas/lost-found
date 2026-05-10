@@ -81,6 +81,7 @@ const MapModal = ({
   };
 
   const handleSave = () => {
+    console.log(tempLocation)
     setFilterLocation(tempLocation);
     onClose();
   };
@@ -146,7 +147,7 @@ const MapModal = ({
           <div className="h-[350px] w-full bg-gray-100 z-0 relative">
             <MapContainer
               center={mapCenter}
-              zoom={15}
+              zoom={16}
               scrollWheelZoom={true}
               style={{
                 height: "100%",

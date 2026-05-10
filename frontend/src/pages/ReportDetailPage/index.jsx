@@ -34,9 +34,11 @@ import ImagePreviewModal from "../../components/ImagePreviewModal";
 import Toast from "../../components/Toast";
 import { IPB_COLORS } from "../../constants/colors";
 import ConfirmModal from "../../components/ConfirmModal";
+import ReportCard from "../../components/ReportCard";
+import ViewDetailModal, { CopyButton } from "../../components/ViewDetailModal";
+
 import ResolveModal from "./ResolveModal";
 import ContactRequestModal from "./ContactRequestModal";
-import ViewDetailModal, { CopyButton } from "../../components/ViewDetailModal";
 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -44,6 +46,7 @@ import "leaflet/dist/leaflet.css";
 import UserLayout from "../../layouts/UserLayout";
 
 const API_URL = import.meta.env.VITE_API_URL;
+const DEFAULT_CENTER = [-6.5607, 106.7265];
 
 const markerIcon = new L.Icon({
 	iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -226,11 +229,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 		}
 	};
 
-	const defaultCenter = {
-		lat: -6.5921,
-		lng: 106.7942,
-	};
-
 	const [toast, setToast] = useState(null);
 	const showToast = (message, type = "success") => {
 		setToast({ message, type });
@@ -309,6 +307,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 			if (!id) return;
 
 			setLoadingSuggestions(true);
+			const token = localStorage.getItem("access_token");
 
 			try {
 				const endpoint = isFound
@@ -317,6 +316,11 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 				const response = await fetch(
 					`${API_URL}${endpoint}`,
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					},
 				);
 
 				if (!response.ok) throw new Error();
@@ -742,11 +746,11 @@ export default function ReportDetailPage({ user, handleLogout }) {
 														.longitude,
 												]
 												: [
-													defaultCenter.lat,
-													defaultCenter.lng,
+													DEFAULT_CENTER[0],
+													DEFAULT_CENTER[1],
 												]
 										}
-										zoom={13}
+										zoom={16}
 										scrollWheelZoom
 										style={{
 											height: "100%",
@@ -792,54 +796,20 @@ export default function ReportDetailPage({ user, handleLogout }) {
 									</p>
 								) : (
 									<div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-										{suggestedReports.map(
-											(item) => {
-												const matchType =
-													isFound
-														? "lost"
-														: "found";
+										{suggestedReports.map((item) => {
+											const matchType = isFound ? "lost" : "found";
 
-												return (
-													<button
-														key={item.id}
-														onClick={() =>
-															navigate(
-																`/report/${item.id}?type=${matchType}`,
-															)
-														}
-														className="text-left border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition"
-													>
-														<div className="h-44 bg-gray-100">
-															{item.photos?.[0] ? (
-																<img
-																	src={
-																		item.photos[0]
-																	}
-																	alt={item.title}
-																	className="w-full h-full object-cover"
-																/>
-															) : (
-																<div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-																	Tidak Ada Gambar
-																</div>
-															)}
-														</div>
-
-														<div className="p-4">
-															<h4 className="font-bold line-clamp-1">
-																{item.title}
-															</h4>
-
-															<p className="text-sm text-gray-500 mt-2 line-clamp-2">
-																{
-																	item.description
-																}
-															</p>
-														</div>
-													</button>
-												);
-											},
-										)}
+											return (
+												<ReportCard
+													key={item.id}
+													item={item}
+													compact
+													onClick={() =>
+														navigate(`/report/${item.id}?type=${matchType}`)
+													}
+												/>
+											);
+										})}
 									</div>
 								)}
 							</div>

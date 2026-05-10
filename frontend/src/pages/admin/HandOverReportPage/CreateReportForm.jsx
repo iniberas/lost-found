@@ -13,6 +13,7 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import { LocationPicker } from "../../../components/LocationPicker";
 
 const API_URL = "http://127.0.0.1:8000";
+const DEFAULT_CENTER = [-6.5607, 106.7265];
 
 export default function CreateReportForm() {
   const [categories, setCategories] = useState([]);
@@ -29,8 +30,7 @@ export default function CreateReportForm() {
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
 
-  const defaultCenter = { lat: -6.5921, lng: 106.7942 };
-  const [mapCenter, setMapCenter] = useState(defaultCenter);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [locationStatus, setLocationStatus] = useState("");
 
@@ -372,7 +372,7 @@ export default function CreateReportForm() {
               <div className="h-[400px] w-full bg-gray-100 z-0 relative">
                 <MapContainer
                   center={mapCenter}
-                  zoom={13}
+                  zoom={16}
                   scrollWheelZoom={true}
                   style={{ height: "100%", width: "100%" }}
                 >

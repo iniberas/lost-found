@@ -39,8 +39,7 @@ const TABS = [
 ];
 
 const DEFAULT_FILTERS = {
-	// status: "",
-	status: "pending",
+	status: "",
 };
 
 const HEADERS = [
@@ -208,7 +207,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 			next.set("tab", tab);
 			next.delete("search");
 			return next;
-		});
+		}, { replace: true });
 	};
 
 	const handleResetFilterWithUrl = () => {
@@ -222,7 +221,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 			next.set("tab", activeTab);
 
 			return next;
-		});
+		}, { replace: true });
 	};
 
 	const updateRequestStatus = (requestId, status) => {
@@ -428,7 +427,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 										params.status = table.filterInput.status;
 									}
 
-									setSearchParams(params);
+									setSearchParams(params, { replace: true });
 								}}
 								searchPlaceholder="Search request..."
 								filterTitle="Filter Requests"
@@ -448,7 +447,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 										params.status = table.filterInput.status;
 									}
 
-									setSearchParams(params);
+									setSearchParams(params, { replace: true });
 								}}
 								onResetFilter={handleResetFilterWithUrl}
 							>

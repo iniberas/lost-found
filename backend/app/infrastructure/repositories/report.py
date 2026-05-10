@@ -310,7 +310,7 @@ class LostReportRepository(ILostReportRepository):
             target_geom = _point_to_geography(location_point)
             stmt = stmt.where(
                 ST_Distance(LostReportModel.location_point, target_geom)
-                <= location_radius
+                <= (location_radius * 1000) # kata om chatgpt defaultnya meter, jadi dikali 1000 (soalnya inputnya km)
             )
         return stmt
 

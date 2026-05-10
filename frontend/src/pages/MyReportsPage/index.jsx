@@ -1,8 +1,8 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
 
-import { Eye, MapPin, Calendar, Package } from "lucide-react";
+import { CheckCircle2, XCircle, Clock3 } from "lucide-react";
 
 import UserLayout from "../../layouts/UserLayout";
 
@@ -15,9 +15,7 @@ import TabSelector from "../../components/admin/TabSelector";
 import StatusBadge from "../../components/admin/StatusBadge";
 
 import {
-  FilterSelect,
   formatDate,
-  ActionBtn,
 } from "../../components/admin/FilterHelpers";
 
 import { useAdminTable } from "../../hooks/useAdminTable";
@@ -61,12 +59,6 @@ const HEADERS = [
     label: "Kategori",
     key: "categories",
     sortable: false,
-  },
-  {
-    label: "Detail",
-    key: "action",
-    sortable: false,
-    className: "text-center",
   },
 ];
 
@@ -118,7 +110,6 @@ export default function MyReportsPage({ user, handleLogout }) {
           throw new Error(data.detail || "Failed to fetch reports");
         }
 
-        // ambil categories sekali
         if (data.categories && Array.isArray(data.categories)) {
           setCategories(data.categories);
         }
@@ -171,17 +162,28 @@ export default function MyReportsPage({ user, handleLogout }) {
       resolved: "Terselesaikan",
       closed: "Ditutup",
     };
+
     return (
-      <StatusBadge
-        variant={variants[status] ?? "secondary"}
-        label={labels[status] ?? status}
-      />
+      <div className="flex items-center gap-2">
+        {status === "open" && (
+          <Clock3 size={14} className="text-yellow-500" />
+        )}
+        {status === "resolved" && (
+          <CheckCircle2 size={14} className="text-green-500" />
+        )}
+        {status === "closed" && (
+          <XCircle size={14} className="text-red-500" />
+        )}
+        <StatusBadge
+          variant={variants[status] ?? "secondary"}
+          label={labels[status] ?? status}
+        />
+      </div>
     );
   };
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-
     table.handleResetFilter();
   };
 
@@ -213,7 +215,6 @@ export default function MyReportsPage({ user, handleLogout }) {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="space-y-3">
               <PageHeader title="Laporan Saya" />
-
               <p className="text-sm text-gray-500">
                 Kelola semua laporan barang hilang dan temuan Anda
               </p>
@@ -238,7 +239,6 @@ export default function MyReportsPage({ user, handleLogout }) {
                     <label className="text-xs font-bold text-gray-700 mb-1 block">
                       dari tanggal
                     </label>
-
                     <input
                       type="date"
                       value={table.filterInput.start_date}
@@ -256,7 +256,6 @@ export default function MyReportsPage({ user, handleLogout }) {
                     <label className="text-xs font-bold text-gray-700 mb-1 block">
                       sampai tanggal
                     </label>
-
                     <input
                       type="date"
                       value={table.filterInput.end_date}
@@ -276,7 +275,6 @@ export default function MyReportsPage({ user, handleLogout }) {
                     <p className="text-xs font-bold text-gray-700 mb-2">
                       Kategori
                     </p>
-
                     <div className="flex flex-wrap gap-2">
                       {categories.map((cat) => (
                         <button
@@ -323,39 +321,31 @@ export default function MyReportsPage({ user, handleLogout }) {
             {table.items.map((item) => (
               <tr
                 key={item.id}
-                className="hover:bg-blue-50/20 transition-colors border-t border-gray-50"
+                className="hover:bg-blue-50/30 transition-colors border-t border-gray-50 cursor-pointer"
+                onClick={() =>
+                  navigate(`/report/${item.id}?type=${item.report_type}`)
+                }
               >
                 {/* TITLE */}
                 <td className="px-6 py-4">
-                  <p className="text-sm font-semibold text-gray-900 truncate max-w-[240px]">
-                    {item.title}
-                  </p>
-
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    {item.description}
-                  </p>
+                  <div className="max-w-[240px] group">
+                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 group-hover:underline underline-offset-2 transition-colors">
+                      {item.title}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">
+                      {item.description || "—"}
+                    </p>
+                  </div>
                 </td>
 
                 {/* LOCATION */}
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-1.5 text-gray-500">
-                    <MapPin size={13} className="text-gray-400 shrink-0" />
-
-                    <span className="text-sm truncate max-w-[160px]">
-                      {item.location_name || "—"}
-                    </span>
-                  </div>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {item.location_name || "—"}
                 </td>
 
                 {/* DATE */}
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-1.5 text-gray-500">
-                    <Calendar size={13} className="text-gray-400 shrink-0" />
-
-                    <span className="text-sm">
-                      {formatDate(item.incident_date)}
-                    </span>
-                  </div>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {formatDate(item.incident_date)}
                 </td>
 
                 {/* STATUS */}
@@ -375,7 +365,6 @@ export default function MyReportsPage({ user, handleLogout }) {
                           {cat.name}
                         </span>
                       ))}
-
                       {item.categories.length > 2 && (
                         <span className="text-xs text-gray-400 self-center">
                           +{item.categories.length - 2}
@@ -385,25 +374,6 @@ export default function MyReportsPage({ user, handleLogout }) {
                   ) : (
                     <span className="text-gray-400 text-sm">—</span>
                   )}
-                </td>
-
-                {/* ACTION */}
-                <td className="px-6 py-4">
-                  <div className="flex justify-center">
-                    <ActionBtn
-                      title="Lihat Detail"
-                      icon={
-                        <Eye
-                          size={16}
-                          className="text-blue-500 group-hover:text-blue-700"
-                        />
-                      }
-                      onClick={() =>
-                        navigate(`/report/${item.id}?type=${item.report_type}`)
-                      }
-                      hoverClass="hover:bg-blue-100"
-                    />
-                  </div>
                 </td>
               </tr>
             ))}

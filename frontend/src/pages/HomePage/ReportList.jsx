@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { PackageOpen, Loader2 } from "lucide-react";
-import ReportCard from "./ReportCard";
+import ReportCard from "../../components/ReportCard";
 
 const ReportList = ({
   items,

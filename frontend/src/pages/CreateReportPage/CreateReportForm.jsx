@@ -13,7 +13,7 @@ import { LocationPicker } from "../../components/LocationPicker";
 import { IPB_COLORS } from "../../constants/colors";
 import ConfirmModal from "../../components/ConfirmModal";
 
-
+const DEFAULT_CENTER = [-6.5607, 106.7265];
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function CreateReportForm({ reportType = 'kehilangan', onSuccess, showToast }) {
@@ -31,8 +31,7 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 	const [photos, setPhotos] = useState([]);
 	const [photoPreviews, setPhotoPreviews] = useState([]);
 
-	const defaultCenter = { lat: -6.5921, lng: 106.7942 };
-	const [mapCenter, setMapCenter] = useState(defaultCenter);
+	const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
 	const [selectedPosition, setSelectedPosition] = useState(null);
 	const [locationStatus, setLocationStatus] = useState("");
 
@@ -43,12 +42,8 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 	useEffect(() => {
 		const fetchCategories = async () => {
 			try {
-				const token = localStorage.getItem("access_token");
 				const response = await fetch(
 					`${API_URL}/api/v1/categories`,
-					{
-						headers: { Authorization: `Bearer ${token}` },
-					},
 				);
 				if (response.ok) {
 					const data = await response.json();
@@ -434,7 +429,7 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 							<div className="h-[400px] w-full bg-gray-100 z-0 relative">
 								<MapContainer
 									center={mapCenter}
-									zoom={13}
+									zoom={16}
 									scrollWheelZoom={true}
 									style={{ height: "100%", width: "100%" }}
 								>

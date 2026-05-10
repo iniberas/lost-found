@@ -14,6 +14,8 @@ const FilterSidebar = ({
   toggleCategory,
   handleAllCategories,
   filterLocation,
+  radiusKm,
+  setRadiusKm,
   setIsMapModalOpen,
   handleApplyFilter,
   loading,
@@ -153,6 +155,38 @@ const FilterSidebar = ({
               Maps
             </span>
           </button>
+
+          {/* RADIUS */}
+          {filterLocation && (
+            <div className="pt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-700">
+                  Radius Pencarian
+                </p>
+
+                <span className="text-xs text-blue-600 font-bold">
+                  {radiusKm} km
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min={1}
+                max={20}
+                step={1}
+                value={radiusKm}
+                onChange={(e) =>
+                  setRadiusKm(Number(e.target.value))
+                }
+                className="w-full accent-blue-600"
+              />
+
+              <div className="flex justify-between text-[10px] text-gray-400">
+                <span>1 km</span>
+                <span>20 km</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* CATEGORY */}
@@ -168,8 +202,8 @@ const FilterSidebar = ({
               type="button"
               onClick={handleAllCategories}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${selectedCategories.length === 0
-                  ? "bg-blue-50 border-blue-200 text-blue-700"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                ? "bg-blue-50 border-blue-200 text-blue-700"
+                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
             >
               Semua
@@ -183,8 +217,8 @@ const FilterSidebar = ({
                   type="button"
                   onClick={() => toggleCategory(cat.id)}
                   className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${isSelected
-                      ? "bg-blue-50 border-blue-200 text-blue-700"
-                      : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                    ? "bg-blue-50 border-blue-200 text-blue-700"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                     }`}
                 >
                   {cat.name}

@@ -34,7 +34,12 @@ export default function HomePage({ user, handleLogout }) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
+  const [radiusKm, setRadiusKm] = useState(5);
   const [filterLocation, setFilterLocation] = useState(null);
+  // yg dipake fetch
+  const [appliedFilterLocation, setAppliedFilterLocation] =
+    useState(null);
 
   const [toast, setToast] = useState(null);
   const showToast = (message, type = "success") => {
@@ -69,8 +74,25 @@ export default function HomePage({ user, handleLogout }) {
     categories,
     selectedCategories,
     setSelectedCategories,
-    handleApplyFilter,
-  } = useReports(activeTab);
+    fetchReports,
+  } = useReports(
+    activeTab,
+    null,
+    false,
+    appliedFilterLocation,
+    radiusKm,
+  );
+
+  const handleApplyFilter = () => {
+    setAppliedFilterLocation(filterLocation);
+
+    setPagination((prev) => ({
+      ...prev,
+      current_page: 1,
+    }));
+
+    fetchReports(1);
+  };
 
   const toggleCategory = (catId) => {
     setSelectedCategories((prev) => {
@@ -188,6 +210,8 @@ export default function HomePage({ user, handleLogout }) {
               handleAllCategories={handleAllCategories}
               filterLocation={filterLocation}
               setIsMapModalOpen={setIsMapModalOpen}
+              radiusKm={radiusKm}
+              setRadiusKm={setRadiusKm}
               handleApplyFilter={handleApplyFilter}
               loading={loading}
             />

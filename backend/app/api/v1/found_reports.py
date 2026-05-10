@@ -256,12 +256,21 @@ async def delete_found_report(
 @router.get("/{report_id}/potential-matches", response_model=List[LostReportResponse])
 async def potential_matches(
     report_id: uuid.UUID,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     use_case: FindPotentialLostReportsUseCase = Depends(
         get_potential_lost_reports_use_case
     ),
 ):
     try:
         reports = await use_case.execute(report_id)
-        return [LostReportResponse.model_validate(r) for r in reports]
+        responses = []
+        for report in reports:
+            response = LostReportResponse.model_validate(report)
+            response.is_owner = (
+                current_user is not None
+                and report.reporter.id == current_user.id
+            )
+            responses.append(response)
+        return responses
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
