@@ -24,6 +24,7 @@ class ContactRequestResponse(BaseModel):
     report_description: Optional[str] = None
     status: RequestStatus
     message: Optional[str] = None
+    response_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -47,3 +48,9 @@ class ContactAccessResponse(BaseModel):
     granted_at: datetime
 
     other_user: ContactAccessUserResponse
+
+class ApproveContactRequestPayload(BaseModel):
+    message: Optional[str] = None
+
+class RejectContactRequestPayload(BaseModel):
+    message: str

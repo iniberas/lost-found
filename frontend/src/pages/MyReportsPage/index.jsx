@@ -10,15 +10,15 @@ import PageHeader from "../../components/PageHeader";
 import Toast from "../../components/Toast";
 import Table from "../../components/Table";
 
-import AdminSearchFilter from "../../components/admin/SearchFilter";
-import TabSelector from "../../components/admin/TabSelector";
-import StatusBadge from "../../components/admin/StatusBadge";
+import SearchFilter from "../../components/SearchFilter";
+import TabSelector from "../../components/TabSelector";
+import StatusBadge from "../../components/StatusBadge";
 
 import {
   formatDate,
-} from "../../components/admin/FilterHelpers";
+} from "../../components/FilterHelpers";
 
-import { useAdminTable } from "../../hooks/useAdminTable";
+import { useTable } from "../../hooks/useTable";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const LIMIT = 15;
@@ -139,7 +139,7 @@ export default function MyReportsPage({ user, handleLogout }) {
     [activeTab, user?.id]
   );
 
-  const table = useAdminTable({
+  const table = useTable({
     fetchFn,
     defaultSort: "created_at",
     defaultOrder: "desc",
@@ -183,8 +183,10 @@ export default function MyReportsPage({ user, handleLogout }) {
   };
 
   const handleTabChange = (tab) => {
+		if (tab === activeTab) return;
+
     setActiveTab(tab);
-    table.handleResetFilter();
+    // table.handleResetFilter(); // mending tetep apply filter aja gasihhh
   };
 
   const toggleCategory = (categoryId) => {
@@ -224,7 +226,7 @@ export default function MyReportsPage({ user, handleLogout }) {
           {/* FILTER + TAB */}
           <div className="flex flex-col md:flex-row gap-4 items-stretch">
             <div className="flex-1 min-w-0">
-              <AdminSearchFilter
+              <SearchFilter
                 searchValue={table.searchInput}
                 onSearchChange={(e) => table.setSearchInput(e.target.value)}
                 onSearchSubmit={table.handleSearchSubmit}
@@ -293,7 +295,7 @@ export default function MyReportsPage({ user, handleLogout }) {
                     </div>
                   </div>
                 )}
-              </AdminSearchFilter>
+              </SearchFilter>
             </div>
 
             <TabSelector

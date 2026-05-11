@@ -26,6 +26,8 @@ from app.schemas.contact_request import (
     ContactRequestResponse,
     CreateContactRequestPayload,
     ContactAccessResponse,
+    ApproveContactRequestPayload,
+    RejectContactRequestPayload,
 )
 from app.schemas.pagination import Paginated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -104,13 +106,18 @@ async def get_my_contact_requests(
 @router.post("/{request_id}/approve", response_model=ContactRequestResponse)
 async def approve_request(
     request_id: uuid.UUID,
+    body: ApproveContactRequestPayload,
     current_user: User = Depends(get_current_user),
     use_case: ApproveContactRequestUseCase = Depends(
         get_approve_contact_request_use_case
     ),
 ):
     try:
-        request = await use_case.execute(actor=current_user, request_id=request_id)
+        request = await use_case.execute(
+            actor=current_user,
+            request_id=request_id,
+            response_message=body.message,
+        )
         return ContactRequestResponse.model_validate(request)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -121,13 +128,18 @@ async def approve_request(
 @router.post("/{request_id}/reject", response_model=ContactRequestResponse)
 async def reject_request(
     request_id: uuid.UUID,
+    body: RejectContactRequestPayload,
     current_user: User = Depends(get_current_user),
     use_case: RejectContactRequestUseCase = Depends(
         get_reject_contact_request_use_case
     ),
 ):
     try:
-        request = await use_case.execute(actor=current_user, request_id=request_id)
+        request = await use_case.execute(
+            actor=current_user,
+            request_id=request_id,
+            response_message=body.message,
+        )
         return ContactRequestResponse.model_validate(request)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

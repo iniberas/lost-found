@@ -29,7 +29,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = import.meta.env.VITE_API_URL;
 const DEFAULT_CENTER = [-6.5607, 106.7265];
 
 const markerIcon = new L.Icon({

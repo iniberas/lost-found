@@ -14,6 +14,7 @@ import ReportDetailPage from "./pages/ReportDetailPage";
 import UpdateReportPage from "./pages/UpdateReportPage";
 import MyReportsPage from './pages/MyReportsPage';
 import MyContactRequestsPage from './pages/MyContactRequestsPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import AdminDashboardHomePage from "./pages/admin/HomePage";
@@ -168,6 +169,15 @@ function AppContent() {
         element={
           <ProtectedRoute user={user}>
             <MyContactRequestsPage user={user} handleLogout={handleLogout} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/my-profile"
+        element={
+          <ProtectedRoute user={user}>
+            <ProfilePage user={user} handleLogout={handleLogout} />
           </ProtectedRoute>
         }
       />

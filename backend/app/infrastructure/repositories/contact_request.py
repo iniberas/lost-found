@@ -49,6 +49,7 @@ class ContactRequestRepository(IContactRequestRepository):
             status=RequestStatus(model.status),
             message=model.message,
             responded_at=model.responded_at,
+            response_message=model.response_message,
         )
 
     async def save(self, request: ContactRequest) -> None:
@@ -59,6 +60,7 @@ class ContactRequestRepository(IContactRequestRepository):
             existing.responded_at = request.responded_at
             existing.status = request.status.value
             existing.message = request.message
+            existing.response_message = request.response_message
         else:
             self.session.add(
                 ContactRequestModel(
@@ -72,6 +74,7 @@ class ContactRequestRepository(IContactRequestRepository):
                     report_type=request.report_type.value,
                     status=request.status.value,
                     message=request.message,
+                    response_message=request.response_message,
                 )
             )
         await self.session.flush()

@@ -1,47 +1,119 @@
 import React from "react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	ChevronsLeft,
+	ChevronsRight,
+} from "lucide-react";
 
 const Pagination = ({ pagination, setPagination }) => {
-  if (pagination.total_pages <= 1) return null;
+	const currentPage = pagination.current_page;
+	const totalPages = pagination.total_pages;
 
-  const handlePrevious = () => {
-    if (pagination.current_page > 1) {
-      setPagination((prev) => ({
-        ...prev,
-        current_page: prev.current_page - 1,
-      }));
-    }
-  };
+	if (totalPages <= 1) return null;
 
-  const handleNext = () => {
-    if (pagination.current_page < pagination.total_pages) {
-      setPagination((prev) => ({
-        ...prev,
-        current_page: prev.current_page + 1,
-      }));
-    }
-  };
+	const goToPage = (page) => {
+		if (page < 1 || page > totalPages) return;
 
-  return (
-    <div className="flex justify-center gap-2 mt-8">
-      <button
-        onClick={handlePrevious}
-        disabled={pagination.current_page === 1}
-        className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-      >
-        Sebelumnya
-      </button>
-      <span className="px-4 py-2 text-sm text-gray-600">
-        Halaman {pagination.current_page} dari {pagination.total_pages}
-      </span>
-      <button
-        onClick={handleNext}
-        disabled={pagination.current_page === pagination.total_pages}
-        className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-      >
-        Selanjutnya
-      </button>
-    </div>
-  );
+		setPagination((prev) => ({
+			...prev,
+			current_page: page,
+		}));
+	};
+
+	const renderPages = () => {
+		const pages = [];
+
+		let start = Math.max(currentPage - 1, 1);
+		let end = Math.min(currentPage + 1, totalPages);
+
+		// mobile-safe window
+		if (currentPage === 1) {
+			end = Math.min(3, totalPages);
+		}
+
+		if (currentPage === totalPages) {
+			start = Math.max(totalPages - 2, 1);
+		}
+
+		for (let i = start; i <= end; i++) {
+			pages.push(
+				<button
+					key={i}
+					onClick={() => goToPage(i)}
+					className={`min-w-[38px] h-9 sm:min-w-[42px] sm:h-10 rounded-xl text-sm font-semibold transition
+						${
+							currentPage === i
+								? "bg-blue-600 text-white shadow-sm"
+								: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+						}`}
+				>
+					{i}
+				</button>
+			);
+		}
+
+		return pages;
+	};
+
+	const baseBtn =
+		"h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition shrink-0";
+
+	return (
+		<div className="mt-8 flex flex-col items-center gap-3">
+			<p className="text-xs sm:text-sm text-gray-500 text-center">
+				Halaman{" "}
+				<span className="font-semibold text-gray-800">
+					{currentPage}
+				</span>{" "}
+				dari{" "}
+				<span className="font-semibold text-gray-800">
+					{totalPages}
+				</span>
+			</p>
+
+			<div className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+				{/* FIRST */}
+				<button
+					onClick={() => goToPage(1)}
+					disabled={currentPage === 1}
+					className={baseBtn}
+				>
+					<ChevronsLeft size={16} />
+				</button>
+
+				{/* PREV */}
+				<button
+					onClick={() => goToPage(currentPage - 1)}
+					disabled={currentPage === 1}
+					className={baseBtn}
+				>
+					<ChevronLeft size={16} />
+				</button>
+
+				{/* PAGE NUMBERS */}
+				{renderPages()}
+
+				{/* NEXT */}
+				<button
+					onClick={() => goToPage(currentPage + 1)}
+					disabled={currentPage === totalPages}
+					className={baseBtn}
+				>
+					<ChevronRight size={16} />
+				</button>
+
+				{/* LAST */}
+				<button
+					onClick={() => goToPage(totalPages)}
+					disabled={currentPage === totalPages}
+					className={baseBtn}
+				>
+					<ChevronsRight size={16} />
+				</button>
+			</div>
+		</div>
+	);
 };
 
 export default Pagination;

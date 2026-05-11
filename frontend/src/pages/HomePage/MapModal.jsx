@@ -90,53 +90,53 @@ const MapModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-[600px] animate-in fade-in zoom-in duration-200">
-        <h3 className="text-xl font-bold mb-4 text-[#0C0B89]">
+      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-2xl w-full max-w-[600px] animate-in fade-in zoom-in duration-200">
+        <h3 className="text-lg font-bold mb-2 text-[#0C0B89]">
           Pilih Titik Pencarian
         </h3>
 
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
           Klik pada peta untuk menentukan area barang
           yang ingin kamu cari.
         </p>
 
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-          
+
           {/* TOP BAR */}
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-            <span className="text-[11px] text-gray-500 font-medium">
+          <div className="bg-gray-50 px-3 py-2.5 border-b border-gray-200 flex justify-between items-center">
+            <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium">
               Klik peta untuk pin lokasi
             </span>
 
             <div className="flex items-center gap-2">
-              
+
               {tempLocation && (
                 <button
                   type="button"
                   onClick={() =>
                     setTempLocation(null)
                   }
-                  className="text-[11px] font-bold text-red-600 bg-white hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-red-200 shadow-sm"
+                  className="text-[10px] sm:text-[11px] font-semibold text-red-600 bg-white hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-red-200 shadow-sm"
                 >
-                  <X size={12} />
-                  Reset Peta
+                  <X size={11} />
+                  Reset
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={handleAskLocation}
-                className="text-[11px] font-bold text-blue-600 bg-white hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-blue-200 shadow-sm"
+                className="text-[10px] sm:text-[11px] font-semibold text-blue-600 bg-white hover:bg-blue-50 px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-blue-200 shadow-sm"
               >
-                <Crosshair size={12} />
-                Lokasi Saat Ini
+                <Crosshair size={11} />
+                Lokasi Saya
               </button>
             </div>
           </div>
 
           {/* STATUS */}
           {locationStatus && (
-            <div className="px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-medium border-b border-amber-100 flex items-center gap-2">
+            <div className="px-3 py-2 bg-amber-50 text-amber-700 text-[10px] sm:text-[11px] font-medium border-b border-amber-100 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
 
               {locationStatus}
@@ -144,7 +144,7 @@ const MapModal = ({
           )}
 
           {/* MAP */}
-          <div className="h-[350px] w-full bg-gray-100 z-0 relative">
+          <div className="h-[320px] sm:h-[350px] w-full bg-gray-100 z-0 relative">
             <MapContainer
               center={mapCenter}
               zoom={16}
@@ -166,19 +166,19 @@ const MapModal = ({
         </div>
 
         {/* ACTIONS */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-2 mt-5">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold transition-colors"
+            className="px-4 py-2 text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-xl font-semibold transition-colors"
           >
             Batal
           </button>
 
           <button
             onClick={handleSave}
-            className="px-5 py-2.5 bg-[#0C0B89] text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95"
+            className="px-4 py-2 bg-[#0C0B89] text-white text-sm rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all active:scale-95"
           >
-            Simpan Titik Lokasi
+            Simpan Lokasi
           </button>
         </div>
       </div>

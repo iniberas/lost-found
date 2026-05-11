@@ -151,6 +151,7 @@ export default function HomePage({ user, handleLogout }) {
       {/* HERO SECTION */}
       <HeroSection user={user} />
 
+<div className="max-w-7xl mx-auto px-6 lg:px-8 py-10 pb-28 lg:pb-10 space-y-6">
       {/* Mobile Filter Floating Button */}
       <button
         onClick={() => setIsFilterOpen(true)}
@@ -271,6 +272,7 @@ export default function HomePage({ user, handleLogout }) {
         filterLocation={filterLocation}
         setFilterLocation={setFilterLocation}
       />
+      </div>
     </UserLayout>
   );
 }

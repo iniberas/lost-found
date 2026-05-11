@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { 
-  User as UserIcon, 
-  LogOut, 
-  ChevronDown, 
-  FileText, 
-  Inbox, 
-  UserCircle 
+import {
+  User as UserIcon,
+  LogOut,
+  ChevronDown,
+  FileText,
+  Inbox,
+  UserCircle
 } from 'lucide-react';
 import LogoWaldo from '../assets/logo-waldo.png';
 import { USER_COLORS } from '../constants/colors';
@@ -33,10 +33,10 @@ const Navbar = ({ user, handleLogout }) => {
       style={{ backgroundColor: USER_COLORS.navbarBg }}
     >      {/* LOGO */}
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/home')}>
-        <img 
-          src={LogoWaldo} 
-          alt="Waldo Logo" 
-          className="h-8 object-contain mix-blend-screen" 
+        <img
+          src={LogoWaldo}
+          alt="Waldo Logo"
+          className="h-8 object-contain mix-blend-screen"
         />
       </div>
 
@@ -45,7 +45,7 @@ const Navbar = ({ user, handleLogout }) => {
         {user ? (
           <div className="relative" ref={dropdownRef}>
             {/* Tombol Profil */}
-            <button 
+            <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-3 p-1.5 pr-2.5 rounded-xl hover:bg-white/10 transition-colors focus:outline-none"
             >
@@ -55,9 +55,9 @@ const Navbar = ({ user, handleLogout }) => {
               <span className="text-sm font-medium text-white hidden sm:block">
                 {user?.name || "User"}
               </span>
-              <ChevronDown 
-                size={14} 
-                className={`text-white/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+              <ChevronDown
+                size={14}
+                className={`text-white/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
               />
             </button>
 
@@ -65,13 +65,13 @@ const Navbar = ({ user, handleLogout }) => {
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="px-2 space-y-1">
-                  
+
                   {/* Laporan Saya */}
-                  <button 
+                  <button
                     onClick={() => {
                       setIsDropdownOpen(false);
                       navigate('/my-reports');
-                    }} 
+                    }}
                     className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors font-medium"
                   >
                     <FileText size={16} className="text-[#314CBB]" />
@@ -79,26 +79,38 @@ const Navbar = ({ user, handleLogout }) => {
                   </button>
 
                   {/* Permintaan Kontak */}
-                  <button 
+                  <button
                     onClick={() => {
                       setIsDropdownOpen(false);
                       navigate('/my-requests?tab=incoming');
-                    }} 
+                    }}
                     className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors font-medium"
                   >
                     <Inbox size={16} className="text-[#314CBB]" />
                     Permintaan Kontak
                   </button>
 
+                  {/* Profile */}
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      navigate('/my-profile');
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors font-medium"
+                  >
+                    <UserCircle size={16} className="text-[#314CBB]" />
+                    Profile Saya
+                  </button>
+
                   {/* Garis Pemisah */}
                   <div className="h-px bg-gray-100 my-1 mx-2" />
 
                   {/* Logout */}
-                  <button 
+                  <button
                     onClick={() => {
                       setIsDropdownOpen(false);
                       handleLogout();
-                    }} 
+                    }}
                     className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
                   >
                     <LogOut size={16} />
@@ -110,12 +122,12 @@ const Navbar = ({ user, handleLogout }) => {
           </div>
         ) : (
           /* Tombol Login Guest */
-      <button
-        onClick={() => navigate('/auth')}
-        className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-5 py-2 rounded-xl text-sm font-semibold transition-all"
-      >
-        Login / Daftar
-      </button>
+          <button
+            onClick={() => navigate('/auth')}
+            className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+          >
+            Login / Daftar
+          </button>
         )}
       </div>
     </nav>

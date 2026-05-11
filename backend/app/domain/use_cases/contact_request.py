@@ -100,7 +100,7 @@ class ApproveContactRequestUseCase:
         self.repo = repo
         self.audit_log_repo = audit_log_repo
 
-    async def execute(self, actor: User, request_id: uuid.UUID) -> ContactRequest:
+    async def execute(self, actor: User, request_id: uuid.UUID, response_message: Optional[str] = None) -> ContactRequest:
         request = await self.repo.get_by_id(request_id)
         if not request:
             raise ValueError("Contact request not found")
@@ -108,7 +108,7 @@ class ApproveContactRequestUseCase:
         if request.target_user.id != actor.id:
             raise PermissionError("Only the target user can approve this request")
 
-        request.approve()
+        request.approve(response_message)
         await self.repo.save(request)
 
         log = AuditLog.new_log(
@@ -116,8 +116,10 @@ class ApproveContactRequestUseCase:
             entity_type=EntityType.CONTACT_REQUEST,
             entity_id=request.id,
             action=ActionType.STATUS_CHANGE,
-            changes={"status": RequestStatus.APPROVED.value},
-        )
+            changes={
+                "status": RequestStatus.APPROVED.value,
+                "response_message": response_message,
+            })
         await self.audit_log_repo.save(log)
 
         return request
@@ -130,7 +132,7 @@ class RejectContactRequestUseCase:
         self.repo = repo
         self.audit_log_repo = audit_log_repo
 
-    async def execute(self, actor: User, request_id: uuid.UUID) -> ContactRequest:
+    async def execute(self, actor: User, request_id: uuid.UUID, response_message: Optional[str] = None) -> ContactRequest:
         request = await self.repo.get_by_id(request_id)
         if not request:
             raise ValueError("Contact request not found")
@@ -138,7 +140,7 @@ class RejectContactRequestUseCase:
         if request.target_user.id != actor.id:
             raise PermissionError("Only the target user can reject this request")
 
-        request.reject()
+        request.reject(response_message)
         await self.repo.save(request)
 
         log = AuditLog.new_log(
@@ -146,8 +148,10 @@ class RejectContactRequestUseCase:
             entity_type=EntityType.CONTACT_REQUEST,
             entity_id=request.id,
             action=ActionType.STATUS_CHANGE,
-            changes={"status": RequestStatus.REJECTED.value},
-        )
+            changes={
+                "status": RequestStatus.REJECTED.value,
+                "response_message": response_message,
+            })
         await self.audit_log_repo.save(log)
 
         return request

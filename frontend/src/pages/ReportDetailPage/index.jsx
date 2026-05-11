@@ -29,7 +29,7 @@ import {
 } from "react-leaflet";
 
 import PageHeader from "../../components/PageHeader";
-import StatusBadge from "../../components/admin/StatusBadge";
+import StatusBadge from "../../components/StatusBadge";
 import ImagePreviewModal from "../../components/ImagePreviewModal";
 import Toast from "../../components/Toast";
 import { IPB_COLORS } from "../../constants/colors";

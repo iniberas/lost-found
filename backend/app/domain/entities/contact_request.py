@@ -32,10 +32,15 @@ class ContactRequest:
         report_description: Optional[str] = None,
         message: Optional[str] = None,
         responded_at: Optional[datetime] = None,
+        response_message: Optional[str] = None,
     ):
         if message is not None:
             message = self._clean_text(message, "Message")
             self._validate_message(message)
+        
+        if response_message is not None:
+            response_message = self._clean_text(response_message, "Response message")
+            self._validate_message(response_message)
 
         self._validate_timestamp(created_at, "Created at")
         self._validate_timestamp(updated_at, "Updated at")
@@ -57,6 +62,7 @@ class ContactRequest:
         self._status = status
         self._message = message
         self._responded_at = responded_at
+        self._response_message = response_message
 
     def __eq__(self, other):
         if not isinstance(other, ContactRequest):
@@ -74,6 +80,7 @@ class ContactRequest:
         report_id: uuid.UUID,
         report_type: ReportType,
         message: Optional[str] = None,
+        response_message: Optional[str] = None,
     ) -> Self:
         id = uuid.uuid4()
         created_at = datetime.now(timezone.utc)
@@ -90,6 +97,7 @@ class ContactRequest:
             report_type=report_type,
             status=status,
             message=message,
+            response_message=response_message,
         )
 
     @property
@@ -143,21 +151,41 @@ class ContactRequest:
     @property
     def message(self) -> Optional[str]:
         return self._message
+    
+    @property
+    def response_message(self) -> Optional[str]:
+        return self._response_message
 
     @property
     def responded_at(self) -> Optional[datetime]:
         return self._responded_at
 
-    def approve(self):
+    def approve(self, response_message: Optional[str] = None):
         self._ensure_pending()
         self._status = RequestStatus.APPROVED
         self._responded_at = datetime.now(timezone.utc)
+
+        if response_message is not None:
+            response_message = self._clean_text(response_message, "Response message")
+            self._validate_message(response_message)
+        self._response_message = response_message
         self._touch()
 
-    def reject(self):
+    def reject(self, response_message: Optional[str] = None):
         self._ensure_pending()
+
+        if response_message is None:
+            raise ValidationError("Response message is required when rejecting")
+
+        response_message = self._clean_text(
+            response_message,
+            "Response message"
+        )
+        self._validate_message(response_message)
+
         self._status = RequestStatus.REJECTED
         self._responded_at = datetime.now(timezone.utc)
+        self._response_message = response_message
         self._touch()
 
     def cancel(self):
@@ -172,7 +200,7 @@ class ContactRequest:
         self._validate_message(new_message)
         self._message = new_message
         self._touch()
-
+    
     def _touch(self):
         self._updated_at = datetime.now(timezone.utc)
 

@@ -57,6 +57,7 @@ class ContactRequestModel(Base):
         default=RequestStatus.PENDING,
     )
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     requester: Mapped["UserModel"] = relationship(foreign_keys=[requester_id])
     target_user: Mapped["UserModel"] = relationship(foreign_keys=[target_user_id])

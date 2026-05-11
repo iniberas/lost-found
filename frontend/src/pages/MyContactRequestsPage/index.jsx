@@ -7,26 +7,28 @@ import {
 	Clock3,
 	Mail,
 	Phone,
+	MessageCircleMore,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildParams } from "../../utils/adminApi";
+import { buildParams } from "../../utils/api";
 
 import UserLayout from "../../layouts/UserLayout";
 import PageHeader from "../../components/PageHeader";
 
 import Table from "../../components/Table";
 import SearchFilter from "../../components/SearchFilter";
-import TabSelector from "../../components/admin/TabSelector";
-import StatusBadge from "../../components/admin/StatusBadge";
+import TabSelector from "../../components/TabSelector";
+import StatusBadge from "../../components/StatusBadge";
 import Toast from "../../components/Toast";
 import ConfirmModal from "../../components/ConfirmModal";
+import ResponseMessageModal from "./ResponseMessageModal";
 import ViewDetailModal, { CopyButton } from "../../components/ViewDetailModal";
 
 import {
 	ActionBtn,
 	FilterSelect,
 	formatDate,
-} from "../../components/admin/FilterHelpers";
+} from "../../components/FilterHelpers";
 
 import { useTable } from "../../hooks/useTable";
 
@@ -121,6 +123,21 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 		setToast({ message, type });
 	};
 
+	const [responseModal, setResponseModal] = useState({
+		open: false,
+		type: null, // approve | reject
+		requestId: null,
+		message: "",
+		submitting: false,
+	});
+
+	const [responseMessageModal, setResponseMessageModal] = useState({
+		open: false,
+		data: null,
+	});
+
+	const [isSwitchingTab, setIsSwitchingTab] = useState(false);
+
 	const fetchFn = useCallback(
 		async ({ page, searchTerm, sortBy, sortOrder, filters }) => {
 			const token = localStorage.getItem("access_token");
@@ -199,17 +216,28 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 	});
 
 	const handleTabChange = (tab) => {
+		if (tab === activeTab) return;
+
+		setIsSwitchingTab(true);
+
 		setActiveTab(tab);
-		// table.handleResetFilter();
+		table.setItems([]);
 
 		setSearchParams((prev) => {
 			const next = new URLSearchParams(prev);
+
 			next.set("tab", tab);
 			next.delete("search");
+
 			return next;
 		}, { replace: true });
 	};
 
+	useEffect(() => {
+		if (!table.isLoading) {
+			setIsSwitchingTab(false);
+		}
+	}, [table.isLoading]);
 	const handleResetFilterWithUrl = () => {
 		table.handleResetFilter();
 
@@ -224,77 +252,84 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 		}, { replace: true });
 	};
 
-	const updateRequestStatus = (requestId, status) => {
+	const updateRequestStatus = (
+		requestId,
+		status,
+		responseMessage = null
+	) => {
 		table.setItems((prev) =>
 			prev.map((item) =>
 				item.id === requestId
 					? {
 						...item,
 						status,
+						response_message: responseMessage,
 						responded_at: new Date().toISOString(),
-					}
-					: item
+					} : item
 			)
 		);
 	};
 
-	const handleApprove = async (requestId) => {
+	const handleRespondRequest = async (
+		requestId,
+		type,
+		message
+	) => {
 		try {
 			const token = localStorage.getItem("access_token");
 
 			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests/${requestId}/approve`,
+				`${API_URL}/api/v1/contact-requests/${requestId}/${type}`,
 				{
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${token}`,
 					},
+					body: JSON.stringify({
+						message: message,
+					}),
 				}
 			);
 
 			const data = await response.json();
 
 			if (!response.ok) {
-				throw new Error(data.detail || "Failed to approve request");
+				throw new Error(
+					data.detail ||
+					`Failed to ${type} request`
+				);
 			}
 
-			showToast("Contact request approved", "success");
-			updateRequestStatus(requestId, "approved");
-		} catch (err) {
-			console.error(err);
-
-			showToast(err.message, "error");
-		}
-	};
-
-	const handleReject = async (requestId) => {
-		try {
-			const token = localStorage.getItem("access_token");
-
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests/${requestId}/reject`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
-					},
-				}
+			showToast(
+				`Contact request ${type === 'reject' ? 'rejected' : 'approved'}`,
+				"success"
 			);
 
-			const data = await response.json();
+			updateRequestStatus(
+				requestId,
+				type === "approve"
+					? "approved"
+					: "rejected",
+				message
+			);
 
-			if (!response.ok) {
-				throw new Error(data.detail || "Failed to reject request");
-			}
-
-			showToast("Contact request rejected", "success");
-			updateRequestStatus(requestId, "rejected");
+			setResponseModal({
+				open: false,
+				type: null,
+				requestId: null,
+				message: "",
+				submitting: false,
+			});
 		} catch (err) {
 			console.error(err);
 
 			showToast(err.message, "error");
+
+			setResponseModal((prev) => ({
+				...prev,
+				submitting: false,
+			}));
 		}
 	};
 
@@ -470,19 +505,19 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 							</SearchFilter>
 						</div>
 
-					<div className="flex justify-center">
-						<TabSelector
-							tabs={TABS}
-							activeTab={activeTab}
-							onTabChange={handleTabChange}
-						/>
-					</div>
+						<div className="flex justify-center">
+							<TabSelector
+								tabs={TABS}
+								activeTab={activeTab}
+								onTabChange={handleTabChange}
+							/>
+						</div>
 					</div>
 
 					{/* TABLE */}
 					<Table
 						headers={HEADERS}
-						isLoading={table.isLoading}
+						isLoading={table.isLoading || isSwitchingTab}
 						sortBy={table.sortBy}
 						sortOrder={table.sortOrder}
 						onSort={table.handleSort}
@@ -495,9 +530,6 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 						{table.items.map((row) => {
 							const otherUser =
 								activeTab === "incoming" ? row.requester : row.target_user;
-
-							const canSeeUser =
-								activeTab === "incoming" || row.status === "approved";
 
 							const isProfileClickable =
 								row.status === "approved";
@@ -520,33 +552,20 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 											</div>
 
 											<div className="min-w-0">
-												{canSeeUser ? (
-													<>
-														<p
-															className={`font-semibold truncate max-w-[180px] ${isProfileClickable
-																? "text-blue-600 cursor-pointer hover:underline"
-																: "text-gray-800"
-																}`}
-															onClick={() => {
-																if (isProfileClickable) handleOpenContact(row.id);
-															}}
-														>
-															{otherUser?.name || "Unknown User"}
-														</p>
-														<p className="text-xs text-gray-400">
-															{isProfileClickable ? "Klik untuk melihat kontak" : "Kontak akan terlihat setelah pemintaan kontak diapprove"}
-														</p>
-													</>
-												) : (
-													<>
-														<p className="font-semibold text-gray-500">
-															Hidden User
-														</p>
-														<p className="text-xs text-gray-400">
-															User akan terlihat setelah request kamu diapprove
-														</p>
-													</>
-												)}
+												<p
+													className={`font-semibold truncate max-w-[180px] ${isProfileClickable
+														? "text-blue-600 cursor-pointer hover:underline"
+														: "text-gray-800"
+														}`}
+													onClick={() => {
+														if (isProfileClickable) handleOpenContact(row.id);
+													}}
+												>
+													{otherUser?.name || "Unknown User"}
+												</p>
+												<p className="text-xs text-gray-400">
+													{isProfileClickable ? "Klik untuk melihat kontak" : "Kontak akan terlihat setelah pemintaan kontak diapprove"}
+												</p>
 											</div>
 										</div>
 									</td>
@@ -611,6 +630,26 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 												)}
 
 											{renderStatus(row.status)}
+
+											{/* RESPONSE MESSAGE */}
+											{row.response_message && (
+												<button
+													type="button"
+													onClick={() =>
+														setResponseMessageModal({
+															open: true,
+															data: row,
+														})
+													}
+													className="ml-1 p-1 rounded-lg hover:bg-blue-100 transition group"
+													title="View response message"
+												>
+													<MessageCircleMore
+														size={15}
+														className="text-blue-500 group-hover:text-blue-700"
+													/>
+												</button>
+											)}
 										</div>
 									</td>
 
@@ -639,16 +678,12 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 															/>
 														}
 														onClick={() =>
-															openConfirmModal({
-																title: "Approve Contact Request?",
-																message:
-																	"Pengguna ini akan bisa melihat informasi kontakmu.",
-																confirmText: "Approve",
-																confirmButtonClassName:
-																	"bg-green-600 hover:bg-green-700",
-																icon: CheckCircle2,
-																iconClassName: "text-green-600",
-																onConfirm: () => handleApprove(row.id),
+															setResponseModal({
+																open: true,
+																type: "approve",
+																requestId: row.id,
+																message: "",
+																submitting: false,
 															})
 														}
 														hoverClass="hover:bg-green-100"
@@ -660,16 +695,12 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 															<XCircle size={17} className="text-red-500" />
 														}
 														onClick={() =>
-															openConfirmModal({
-																title: "Reject Contact Request?",
-																message:
-																	"Pengguna tidak akan bisa melihat informasi kontakmu.",
-																confirmText: "Reject",
-																confirmButtonClassName:
-																	"bg-red-600 hover:bg-red-700",
-																icon: XCircle,
-																iconClassName: "text-red-600",
-																onConfirm: () => handleReject(row.id),
+															setResponseModal({
+																open: true,
+																type: "reject",
+																requestId: row.id,
+																message: "",
+																submitting: false,
 															})
 														}
 														hoverClass="hover:bg-red-100"
@@ -799,6 +830,85 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 					</div>
 				)}
 			</ViewDetailModal>
+
+			{/* RESPONSE MESSAGE MODAL */}
+			<ViewDetailModal
+				open={responseMessageModal.open}
+				onClose={() =>
+					setResponseMessageModal({
+						open: false,
+						data: null,
+					})
+				}
+				title="Response Message"
+				icon={MessageCircleMore}
+				iconClassName="text-blue-500"
+			>
+				{responseMessageModal.data && (
+					<div className="space-y-4">
+						<div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+							<p className="text-xs text-gray-400 mb-0.5">
+								Status
+							</p>
+
+							<p className="text-sm font-semibold text-gray-800 capitalize">
+								{responseMessageModal.data.status}
+							</p>
+						</div>
+
+						<div>
+							<p className="text-xs text-gray-400 mb-1">
+								Response Message
+							</p>
+
+							<p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
+								{responseMessageModal.data.response_message || "—"}
+							</p>
+						</div>
+					</div>
+				)}
+			</ViewDetailModal>
+
+			<ResponseMessageModal
+				isOpen={responseModal.open}
+				onClose={() =>
+					setResponseModal({
+						open: false,
+						type: null,
+						requestId: null,
+						message: "",
+						submitting: false,
+					})
+				}
+				submitting={responseModal.submitting}
+				message={responseModal.message}
+				setMessage={(message) =>
+					setResponseModal((prev) => ({
+						...prev,
+						message,
+					}))
+				}
+				type={responseModal.type}
+				handleSubmit={async () => {
+					if (
+						responseModal.type === "reject" &&
+						!responseModal.message.trim()
+					) {
+						showToast("Response message wajib diisi untuk reject request.", "error");
+						return;
+					}
+					setResponseModal((prev) => ({
+						...prev,
+						submitting: true,
+					}));
+
+					await handleRespondRequest(
+						responseModal.requestId,
+						responseModal.type,
+						responseModal.message
+					);
+				}}
+			/>
 
 			<ConfirmModal
 				open={confirmModal.open}

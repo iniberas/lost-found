@@ -72,7 +72,13 @@ export function useTable({
 
     const handleResetFilter = () => {
         const emptyFilters = Object.keys(defaultFilters).reduce((acc, key) => {
-            acc[key] = "";
+            const value = defaultFilters[key];
+            if (Array.isArray(value)) {
+                acc[key] = [];
+            } else {
+                acc[key] = "";
+            }
+
             return acc;
         }, {});
 
