@@ -620,17 +620,16 @@ export default function ReportDetailPage({ user, handleLogout }) {
 							{/* LEFT */}
 							<div className="flex items-start gap-5">
 								<div
-									className={`w-16 h-16 rounded-2xl flex items-center justify-center border shrink-0 ${isFound
+									className={`w-6 h-6 md:w-16 md:h-16 rounded-2xl flex items-center justify-center border shrink-0 ${isFound
 										? "bg-blue-50 border-blue-100"
 										: "bg-red-50 border-red-100"
 										}`}
 								>
 									<FileText
-										size={28}
 										className={
 											isFound
-												? "text-blue-600"
-												: "text-red-600"
+												? "text-blue-600 w-5 h-5 md:w-7 md:h-7"
+												: "text-red-600 w-5 h-5 md:w-7 md:h-7"
 										}
 									/>
 								</div>
@@ -663,213 +662,131 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					</div>
 
 					{/* CONTENT */}
+					{/* CONTENT */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-						{/* LEFT */}
-						<div className="lg:col-span-2 space-y-6">
-							{/* PHOTO */}
-							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-								<div className="relative h-[360px] rounded-2xl overflow-hidden bg-gray-100">
-									{report.photos?.length > 0 ? (
-										<img
-											src={
-												report.photos[
-												activePhotoIndex
-												]
-											}
-											alt="report"
-											onClick={() =>
-												setPreviewOpen(true)
-											}
-											className="w-full h-full object-cover cursor-zoom-in"
-										/>
-									) : (
-										<div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-											<ImageIcon size={40} />
 
-											<span className="mt-2 text-sm">
-												Tidak Ada Gambar
-											</span>
-										</div>
-									)}
-								</div>
-
-								{report.photos?.length > 1 && (
-									<div className="flex gap-3 mt-4 overflow-x-auto">
-										{report.photos.map(
-											(photo, idx) => (
-												<button
-													key={idx}
-													onClick={() =>
-														setActivePhotoIndex(
-															idx,
-														)
-													}
-													className={`w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0 ${idx ===
-														activePhotoIndex
-														? "border-blue-500"
-														: "border-gray-200"
-														}`}
-												>
-													<img
-														src={photo}
-														alt=""
-														className="w-full h-full object-cover"
-													/>
-												</button>
-											),
-										)}
-									</div>
-								)}
-							</div>
-
-							{/* LOCATION */}
-							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-								<div className="flex items-center gap-2">
-									<MapPin size={18} style={{ color: IPB_COLORS.blue.primary }} />
-									<h3 className="text-lg font-bold">
-										Location
-									</h3>
-								</div>
-
-								<div className="w-full p-4 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-all resize-none shadow-sm">
-									{report.location_name || "-"}
-								</div>
-
-								<div className="h-[400px] rounded-2xl overflow-hidden border border-gray-200">
-									<MapContainer
-										center={
-											report.location_point
-												? [
-													report.location_point
-														.latitude,
-													report.location_point
-														.longitude,
-												]
-												: [
-													DEFAULT_CENTER[0],
-													DEFAULT_CENTER[1],
-												]
-										}
-										zoom={16}
-										scrollWheelZoom
-										style={{
-											height: "100%",
-											width: "100%",
-										}}
-									>
-										<TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
-										{report.location_point && (
-											<Marker
-												icon={markerIcon}
-												position={[
-													report.location_point
-														.latitude,
-													report.location_point
-														.longitude,
-												]}
-											>
-												<Popup>
-													{report.location_name}
-												</Popup>
-											</Marker>
-										)}
-									</MapContainer>
-								</div>
-							</div>
-
-							{/* SUGGESTIONS */}
-							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-								<h3 className="text-lg font-bold mb-5">
-									Barang Serupa
-								</h3>
-
-								{loadingSuggestions ? (
-									<p className="text-sm text-gray-400">
-										Memuat barang serupa...
-									</p>
-								) : suggestedReports.length ===
-									0 ? (
-									<p className="text-sm text-gray-400">
-										Tidak ada barang serupa
-										ditemukan.
-									</p>
+						{/* 1 mobile: PHOTO */}
+						<div className="order-1 lg:col-span-2 lg:row-start-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+							<div className="relative h-[360px] rounded-2xl overflow-hidden bg-gray-100">
+								{report.photos?.length > 0 ? (
+									<img
+										src={report.photos[activePhotoIndex]}
+										alt="report"
+										onClick={() => setPreviewOpen(true)}
+										className="w-full h-full object-cover cursor-zoom-in"
+									/>
 								) : (
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-										{suggestedReports.map((item) => {
-											const matchType = isFound ? "lost" : "found";
-
-											return (
-												<ReportCard
-													key={item.id}
-													item={item}
-													compact
-													onClick={() =>
-														navigate(`/report/${item.id}?type=${matchType}`)
-													}
-												/>
-											);
-										})}
+									<div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+										<ImageIcon size={40} />
+										<span className="mt-2 text-sm">Tidak Ada Gambar</span>
 									</div>
 								)}
+							</div>
+							{report.photos?.length > 1 && (
+								<div className="flex gap-3 mt-4 overflow-x-auto">
+									{report.photos.map((photo, idx) => (
+										<button
+											key={idx}
+											onClick={() => setActivePhotoIndex(idx)}
+											className={`w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0 ${idx === activePhotoIndex ? "border-blue-500" : "border-gray-200"
+												}`}
+										>
+											<img src={photo} alt="" className="w-full h-full object-cover" />
+										</button>
+									))}
+								</div>
+							)}
+						</div>
+
+						{/* 2 mobile: CATEGORY & DESC — mobile only */}
+						<div className="order-2 lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+							<div>
+								<h3 className="text-lg font-bold mb-2">Categories</h3>
+								<div className="flex flex-wrap gap-2">
+									{report.categories?.map((cat) => (
+										<span key={cat.id} className="px-3 py-1.5 rounded-xl text-xs font-bold border bg-blue-50 border-blue-200 text-blue-700 shadow-sm">
+											{cat.name}
+										</span>
+									))}
+								</div>
+							</div>
+							<div>
+								<h3 className="text-lg font-bold mb-2">Description</h3>
+								<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm">
+									{report.description || "-"}
+								</div>
 							</div>
 						</div>
 
-						{/* SIDEBAR */}
-						<div className="space-y-6">
-							{/* DETAILS */}
-							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
-								<div>
-									<h3 className="text-lg font-bold mb-2">
-										Categories
-									</h3>
+						{/* 3 mobile: LOCATION */}
+						<div className="order-3 lg:col-span-2 lg:row-start-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+							<div className="flex items-center gap-2">
+								<MapPin size={18} style={{ color: IPB_COLORS.blue.primary }} />
+								<h3 className="text-lg font-bold">Location</h3>
+							</div>
+							<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm">
+								{report.location_name || "-"}
+							</div>
+							<div className="h-[400px] rounded-2xl overflow-hidden border border-gray-200">
+								<MapContainer
+									center={
+										report.location_point
+											? [report.location_point.latitude, report.location_point.longitude]
+											: [DEFAULT_CENTER[0], DEFAULT_CENTER[1]]
+									}
+									zoom={16}
+									scrollWheelZoom
+									style={{ height: "100%", width: "100%" }}
+								>
+									<TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+									{report.location_point && (
+										<Marker
+											icon={markerIcon}
+											position={[report.location_point.latitude, report.location_point.longitude]}
+										>
+											<Popup>{report.location_name}</Popup>
+										</Marker>
+									)}
+								</MapContainer>
+							</div>
+						</div>
 
+						{/* SIDEBAR — order-4 mobile, col-start-3 row-start-1 row-span-2 desktop */}
+						<div className="order-4 lg:col-start-3 lg:row-start-1 lg:row-span-2 flex flex-col gap-6 self-start">
+
+							{/* Category & Desc — desktop only */}
+							<div className="hidden lg:block bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+								<div>
+									<h3 className="text-lg font-bold mb-2">Categories</h3>
 									<div className="flex flex-wrap gap-2">
-										{report.categories?.map(
-											(cat) => (
-												<span
-													key={cat.id}
-													className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
-												>
-													{cat.name}
-												</span>
-											),
-										)}
+										{report.categories?.map((cat) => (
+											<span key={cat.id} className="px-3 py-1.5 rounded-xl text-xs font-bold border bg-blue-50 border-blue-200 text-blue-700 shadow-sm">
+												{cat.name}
+											</span>
+										))}
 									</div>
 								</div>
-
 								<div>
-									<h3 className="text-lg font-bold mb-2">
-										Description
-									</h3>
-
-									<div className="w-full p-4 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-all resize-none shadow-sm">
+									<h3 className="text-lg font-bold mb-2">Description</h3>
+									<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm">
 										{report.description || "-"}
 									</div>
 								</div>
 							</div>
 
-							{/* ACTIONS */}
-							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-6">
+							{/* Actions */}
+							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-6">
 								<h3 className="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">
 									Actions
 								</h3>
-
 								{isClosed ? (
 									<div className="rounded-2xl border border-red-200 bg-red-50 p-4">
 										<div className="flex items-start gap-3">
 											<div className="p-2 rounded-xl bg-red-100">
-												<Trash2
-													size={18}
-													className="text-red-600"
-												/>
+												<Trash2 size={18} className="text-red-600" />
 											</div>
-
 											<div>
-												<h4 className="font-bold text-red-700">
-													Laporan Sudah Dihapus
-												</h4>
-
+												<h4 className="font-bold text-red-700">Laporan Sudah Dihapus</h4>
 												<p className="text-sm text-red-600 mt-1">
 													Laporan ini telah dihapus dan tidak dapat diubah lagi.
 												</p>
@@ -880,20 +797,12 @@ export default function ReportDetailPage({ user, handleLogout }) {
 									<div className="rounded-2xl border border-green-200 bg-green-50 p-4">
 										<div className="flex items-start gap-3">
 											<div className="p-2 rounded-xl bg-green-100">
-												<CheckCircle2
-													size={18}
-													className="text-green-600"
-												/>
+												<CheckCircle2 size={18} className="text-green-600" />
 											</div>
-
 											<div>
-												<h4 className="font-bold text-green-700">
-													Laporan Sudah Diselesaikan
-												</h4>
-
+												<h4 className="font-bold text-green-700">Laporan Sudah Diselesaikan</h4>
 												<p className="text-sm text-green-600 mt-1">
-													Laporan ini telah ditandai sebagai resolved
-													dan tidak dapat diubah lagi.
+													Laporan ini telah ditandai sebagai resolved dan tidak dapat diubah lagi.
 												</p>
 											</div>
 										</div>
@@ -906,29 +815,17 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													<div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 shadow-sm">
 														<div className="flex items-start gap-3">
 															<div className="p-2 rounded-xl bg-yellow-100">
-																<UserIcon
-																	size={18}
-																	className="text-yellow-700"
-																/>
+																<UserIcon size={18} className="text-yellow-700" />
 															</div>
-
 															<div className="flex-1">
 																<h4 className="font-bold text-yellow-800">
-																	Ada {incomingRequestCount} contact request
-																	masuk
+																	Ada {incomingRequestCount} contact request masuk
 																</h4>
-
 																<p className="text-sm text-yellow-700 mt-1">
-																	Seseorang ingin menghubungimu terkait
-																	laporan ini.
+																	Seseorang ingin menghubungimu terkait laporan ini.
 																</p>
-
 																<button
-																	onClick={() =>
-																		navigate(
-																			`/my-requests?tab=incoming&search=${encodeURIComponent(report.title || "")}`
-																		)
-																	}
+																	onClick={() => navigate(`/my-requests?tab=incoming&search=${encodeURIComponent(report.title || "")}`)}
 																	className="mt-3 px-4 py-2 rounded-xl bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-semibold transition-colors"
 																>
 																	Lihat Requests
@@ -938,21 +835,13 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													</div>
 												)}
 												<button
-													onClick={() =>
-														navigate(
-															`/update-report/${id}?type=${activeTab}`,
-														)
-													}
-													className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
-													style={{
-														backgroundColor:
-															IPB_COLORS.blue.primary,
-													}}
+													onClick={() => navigate(`/update-report/${id}?type=${activeTab}`)}
+													className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+													style={{ backgroundColor: IPB_COLORS.blue.primary }}
 												>
 													<Edit size={16} />
 													Edit Report
 												</button>
-
 												<button
 													onClick={() => handleResolveClick()}
 													className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
@@ -960,7 +849,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													<CheckCircle2 size={16} />
 													Resolve
 												</button>
-
 												<button
 													onClick={() => setShowDeleteModal(true)}
 													className="w-full py-2.5 rounded-xl text-sm font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
@@ -977,96 +865,56 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													</div>
 												) : existingContactRequest ? (
 													<div className="space-y-3">
-														{/* PENDING */}
 														{existingContactRequest.status === "pending" && (
 															<>
 																<div className="w-full py-3 px-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm shadow-sm">
-																	<p className="font-semibold">
-																		Kamu sudah mengirim contact request.
-																	</p>
-
-																	<p className="text-xs mt-1 text-yellow-600">
-																		Menunggu respon dari pembuat laporan.
-																	</p>
-
-																	{showRequestMessage &&
-																		existingContactRequest.message && (
-																			<div className="mt-3 p-3 rounded-lg bg-white/70 border border-yellow-100 text-gray-700 text-sm whitespace-pre-wrap">
-																				{existingContactRequest.message}
-																			</div>
-																		)}
+																	<p className="font-semibold">Kamu sudah mengirim contact request.</p>
+																	<p className="text-xs mt-1 text-yellow-600">Menunggu respon dari pembuat laporan.</p>
+																	{showRequestMessage && existingContactRequest.message && (
+																		<div className="mt-3 p-3 rounded-lg bg-white/70 border border-yellow-100 text-gray-700 text-sm whitespace-pre-wrap">
+																			{existingContactRequest.message}
+																		</div>
+																	)}
 																</div>
-
 																{existingContactRequest.message && (
 																	<button
-																		onClick={() =>
-																			setShowRequestMessage(
-																				!showRequestMessage
-																			)
-																		}
+																		onClick={() => setShowRequestMessage(!showRequestMessage)}
 																		className="w-full py-2 rounded-xl border border-yellow-200 bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 transition-colors"
 																	>
-																		{showRequestMessage
-																			? "Hide Message"
-																			: "Show Message"}
+																		{showRequestMessage ? "Hide Message" : "Show Message"}
 																	</button>
 																)}
 															</>
 														)}
-
-														{/* APPROVED */}
 														{existingContactRequest.status === "approved" && (
 															<>
 																<div className="w-full py-3 px-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm shadow-sm">
-																	<p className="font-semibold">
-																		Contact request disetujui.
-																	</p>
-
-																	<p className="text-xs mt-1 text-green-600">
-																		Kamu sekarang bisa melihat kontak pembuat laporan.
-																	</p>
+																	<p className="font-semibold">Contact request disetujui.</p>
+																	<p className="text-xs mt-1 text-green-600">Kamu sekarang bisa melihat kontak pembuat laporan.</p>
 																</div>
-
 																<button
-																	onClick={() =>
-																		handleOpenContact(
-																			existingContactRequest.id
-																		)
-																	}
+																	onClick={() => handleOpenContact(existingContactRequest.id)}
 																	className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
-																	style={{
-																		backgroundColor:
-																			IPB_COLORS.blue.primary,
-																	}}
+																	style={{ backgroundColor: IPB_COLORS.blue.primary }}
 																>
 																	Lihat Kontak
 																</button>
 															</>
 														)}
-
-														{/* REJECTED — allow resend */}
 														{existingContactRequest.status === "rejected" && (
 															<div className="space-y-3">
 																<div className="w-full py-3 px-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm shadow-sm">
-																	<p className="font-semibold">
-																		Contact request ditolak.
-																	</p>
-
+																	<p className="font-semibold">Contact request ditolak.</p>
 																	<p className="text-xs mt-1 text-red-600">
 																		Kamu sudah pernah membuat contact request, tapi ditolak oleh pembuat laporan.{" "}
 																		<button
-																			onClick={() =>
-																				navigate(
-																					`/my-requests?tab=outgoing&search=${encodeURIComponent(report.title || "")}`
-																				)
-																			}
+																			onClick={() => navigate(`/my-requests?tab=outgoing&search=${encodeURIComponent(report.title || "")}`)}
 																			className="underline font-semibold hover:text-red-800 transition-colors"
 																		>
 																			Lihat selengkapnya
 																		</button>
 																	</p>
 																</div>
-
 																<button
 																	onClick={() => setShowContactModal(true)}
 																	className="w-full py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2"
@@ -1075,30 +923,20 @@ export default function ReportDetailPage({ user, handleLogout }) {
 																</button>
 															</div>
 														)}
-
-														{/* CANCELED — allow resend */}
 														{existingContactRequest.status === "canceled" && (
 															<div className="space-y-3">
 																<div className="w-full py-3 px-4 rounded-xl bg-gray-50 border border-gray-200 text-gray-700 text-sm shadow-sm">
-																	<p className="font-semibold">
-																		Contact request dibatalkan.
-																	</p>
-
+																	<p className="font-semibold">Contact request dibatalkan.</p>
 																	<p className="text-xs mt-1 text-gray-500">
 																		Kamu sudah pernah membuat contact request, tapi dibatalkan.{" "}
 																		<button
-																			onClick={() =>
-																				navigate(
-																					`/my-requests?tab=outgoing&search=${encodeURIComponent(report.title || "")}`
-																				)
-																			}
+																			onClick={() => navigate(`/my-requests?tab=outgoing&search=${encodeURIComponent(report.title || "")}`)}
 																			className="underline font-semibold hover:text-gray-700 transition-colors"
 																		>
 																			Lihat selengkapnya
 																		</button>
 																	</p>
 																</div>
-
 																<button
 																	onClick={() => setShowContactModal(true)}
 																	className="w-full py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2"
@@ -1112,14 +950,9 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													<button
 														onClick={() => setShowContactModal(true)}
 														className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
-														style={{
-															backgroundColor:
-																IPB_COLORS.blue.primary,
-														}}
+														style={{ backgroundColor: IPB_COLORS.blue.primary }}
 													>
-														{isFound
-															? "Request Contact"
-															: "Saya Menemukan Ini"}
+														{isFound ? "Request Contact" : "Saya Menemukan Ini"}
 													</button>
 												)}
 											</div>
@@ -1128,6 +961,31 @@ export default function ReportDetailPage({ user, handleLogout }) {
 								)}
 							</div>
 						</div>
+
+						{/* 5 mobile: BARANG SERUPA */}
+						<div className="order-5 lg:col-span-2 lg:row-start-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+							<h3 className="text-lg font-bold mb-5">Barang Serupa</h3>
+							{loadingSuggestions ? (
+								<p className="text-sm text-gray-400">Memuat barang serupa...</p>
+							) : suggestedReports.length === 0 ? (
+								<p className="text-sm text-gray-400">Tidak ada barang serupa ditemukan.</p>
+							) : (
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+									{suggestedReports.map((item) => {
+										const matchType = isFound ? "lost" : "found";
+										return (
+											<ReportCard
+												key={item.id}
+												item={item}
+												compact
+												onClick={() => navigate(`/report/${item.id}?type=${matchType}`)}
+											/>
+										);
+									})}
+								</div>
+							)}
+						</div>
+
 					</div>
 				</div>
 

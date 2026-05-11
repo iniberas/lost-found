@@ -34,8 +34,8 @@ const API_URL = import.meta.env.VITE_API_URL;
 const LIMIT = 15;
 
 const TABS = [
-	{ id: "incoming", label: "Incoming Requests" },
-	{ id: "outgoing", label: "Outgoing Requests" },
+	{ id: "incoming", label: "Incoming" },
+	{ id: "outgoing", label: "Outgoing" },
 ];
 
 const DEFAULT_FILTERS = {
@@ -470,11 +470,13 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 							</SearchFilter>
 						</div>
 
+					<div className="flex justify-center">
 						<TabSelector
 							tabs={TABS}
 							activeTab={activeTab}
 							onTabChange={handleTabChange}
 						/>
+					</div>
 					</div>
 
 					{/* TABLE */}
