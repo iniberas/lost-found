@@ -14,6 +14,8 @@ import Toast from "../../components/Toast";
 import { formatDate } from "../../components/FilterHelpers";
 
 import EditProfileModal from "./EditProfileModal";
+import ChangePasswordModal from "./ChangePasswordModal";
+import { apiFetch } from "../../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -32,6 +34,11 @@ export default function ProfilePage({
     submitting: false,
   });
 
+  const [passwordModal, setPasswordModal] = useState({
+    open: false,
+    submitting: false,
+  });
+
   const showToast = (
     message,
     type = "success"
@@ -46,18 +53,9 @@ export default function ProfilePage({
   const fetchProfile = async () => {
     try {
       setLoading(true);
-
-      const token =
-        localStorage.getItem("access_token");
-
-      const response = await fetch(
-        `${API_URL}/api/v1/users/me`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await apiFetch(`${API_URL}/api/v1/users/me`, {
+        auth: "required"
+      })
 
       const data = await response.json();
 
@@ -86,9 +84,6 @@ export default function ProfilePage({
         submitting: true,
       }));
 
-      const token =
-        localStorage.getItem("access_token");
-
       const formData = new FormData();
 
       formData.append(
@@ -106,16 +101,11 @@ export default function ProfilePage({
         payload.phone_number
       );
 
-      const response = await fetch(
-        `${API_URL}/api/v1/users/me`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
+      const response = await apiFetch(`${API_URL}/api/v1/users/me`, {
+        method: "PUT",
+        auth: "required",
+        body: formData,
+      })
 
       const data = await response.json();
 
@@ -144,6 +134,56 @@ export default function ProfilePage({
         ...prev,
         submitting: false,
       }));
+    }
+  };
+
+  const handleChangePassword = async (payload) => {
+    try {
+      setPasswordModal((prev) => ({
+        ...prev,
+        submitting: true,
+      }));
+
+      const response = await apiFetch(
+        `${API_URL}/api/v1/users/me/password`,
+        {
+          method: "PATCH",
+          auth: "required",
+          body: JSON.stringify({
+            old_password: payload.old_password,
+            new_password: payload.new_password,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.detail || "Failed to change password"
+        );
+      }
+
+      setPasswordModal({
+        open: false,
+        submitting: false,
+      });
+
+      showToast(
+        "Password changed successfully",
+        "success"
+      );
+      return true
+    } catch (err) {
+      console.error(err);
+
+      showToast(err.message, "error");
+
+      setPasswordModal((prev) => ({
+        ...prev,
+        submitting: false,
+      }));
+      return false
     }
   };
 
@@ -216,7 +256,7 @@ export default function ProfilePage({
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex flex-wrap gap-3">
                 <button
                   onClick={() =>
                     setEditModal({
@@ -227,8 +267,19 @@ export default function ProfilePage({
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0C0B89] text-white text-sm font-semibold hover:opacity-90 transition"
                 >
                   <Pencil size={16} />
-
                   Edit Profile
+                </button>
+
+                <button
+                  onClick={() =>
+                    setPasswordModal({
+                      open: true,
+                      submitting: false,
+                    })
+                  }
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition"
+                >
+                  Change Password
                 </button>
               </div>
             </div>
@@ -249,12 +300,24 @@ export default function ProfilePage({
         handleSubmit={handleUpdateProfile}
       />
 
+      <ChangePasswordModal
+        isOpen={passwordModal.open}
+        onClose={() =>
+          setPasswordModal({
+            open: false,
+            submitting: false,
+          })
+        }
+        submitting={passwordModal.submitting}
+        handleSubmit={handleChangePassword}
+      />
       <Toast
         show={Boolean(toast)}
         message={toast?.message}
         type={toast?.type}
         onClose={() => setToast(null)}
       />
+
     </UserLayout>
   );
 }

@@ -10,7 +10,7 @@ import {
 	MessageCircleMore,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildParams } from "../../utils/api";
+import { apiFetch, buildParams } from "../../utils/api";
 
 import UserLayout from "../../layouts/UserLayout";
 import PageHeader from "../../components/PageHeader";
@@ -140,8 +140,6 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 
 	const fetchFn = useCallback(
 		async ({ page, searchTerm, sortBy, sortOrder, filters }) => {
-			const token = localStorage.getItem("access_token");
-
 			const qs = buildParams({
 				page,
 				limit: LIMIT,
@@ -159,14 +157,9 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 				sort_order: sortOrder,
 			});
 
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests?${qs}`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			);
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests?${qs}`, {
+				auth: "required",
+			})
 
 			const data = await response.json();
 
@@ -276,21 +269,12 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 		message
 	) => {
 		try {
-			const token = localStorage.getItem("access_token");
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/${type}`, {
+				method: "POST",
+				auth: "required",
+				body: JSON.stringify({ message: message }),
+			})
 
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests/${requestId}/${type}`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						message: message,
-					}),
-				}
-			);
 
 			const data = await response.json();
 
@@ -335,18 +319,10 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 
 	const handleCancel = async (requestId) => {
 		try {
-			const token = localStorage.getItem("access_token");
-
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests/${requestId}/cancel`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			);
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/cancel`, {
+				method: "POST",
+				auth: "required",
+			})
 
 			const data = await response.json();
 
@@ -371,16 +347,9 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 				data: null,
 			});
 
-			const token = localStorage.getItem("access_token");
-
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests/${requestId}/contact`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			);
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/contact`, {
+				auth: "required"
+			})
 
 			const result = await response.json().catch(() => ({}));
 
@@ -436,7 +405,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 						<div className="space-y-3">
 							<PageHeader title="Permintaan Kontak" />
 							<p className="text-sm text-gray-500">
-								Kelola semua contact request Anda
+								Kelola semua contact request
 							</p>
 						</div>
 					</div>

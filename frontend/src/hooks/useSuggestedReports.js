@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -18,7 +19,7 @@ export function useSuggestedReports(id, activeTab) {
             ? `/api/v1/found-reports/${id}/potential-matches`
             : `/api/v1/lost-reports/${id}/potential-matches`;
 
-        const response = await fetch(`${API_URL}${endpoint}`);
+        const response = await apiFetch(`${API_URL}${endpoint}`);
         if (!response.ok) throw new Error("Gagal memuat laporan serupa");
 
         const data = await response.json();

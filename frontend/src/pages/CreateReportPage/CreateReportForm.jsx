@@ -12,6 +12,7 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import { LocationPicker } from "../../components/LocationPicker";
 import { IPB_COLORS } from "../../constants/colors";
 import ConfirmModal from "../../components/ConfirmModal";
+import { apiFetch } from "../../utils/api";
 
 const DEFAULT_CENTER = [-6.5607, 106.7265];
 const API_URL = import.meta.env.VITE_API_URL;
@@ -42,9 +43,7 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 	useEffect(() => {
 		const fetchCategories = async () => {
 			try {
-				const response = await fetch(
-					`${API_URL}/api/v1/categories`,
-				);
+				const response = await apiFetch(`${API_URL}/api/v1/categories`)
 				if (response.ok) {
 					const data = await response.json();
 					setCategories(data.filter(cat => cat.is_active));
@@ -159,8 +158,6 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 		setIsSubmitting(true);
 
 		try {
-			const token = localStorage.getItem("access_token");
-
 			const endpoint =
 				reportType === "penemuan"
 					? "/api/v1/found-reports"
@@ -195,11 +192,9 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 				submitData.append("photos", photo)
 			);
 
-			const response = await fetch(`${API_URL}${endpoint}`, {
+			const response = await apiFetch(`${API_URL}${endpoint}`, {
 				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
+				auth: "required",
 				body: submitData,
 			});
 
@@ -216,8 +211,8 @@ export default function CreateReportForm({ reportType = 'kehilangan', onSuccess,
 					toast: {
 						type: "success",
 						message: `Laporan ${reportType === "penemuan"
-								? "penemuan barang"
-								: "kehilangan barang"
+							? "penemuan barang"
+							: "kehilangan barang"
 							} berhasil dibuat!`,
 					},
 				},

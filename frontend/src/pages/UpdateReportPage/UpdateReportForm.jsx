@@ -13,6 +13,7 @@ import {
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { LocationPicker } from '../../components/LocationPicker';
 import { IPB_COLORS } from "../../constants/colors";
+import { apiFetch } from '../../utils/api';
 
 const DEFAULT_CENTER = [-6.5607, 106.7265];
 const API_URL = import.meta.env.VITE_API_URL;
@@ -57,19 +58,13 @@ export default function UpdateReportForm({ user, showToast }) {
     const fetchReport = async () => {
       setLoading(true);
         try {
-        const token = localStorage.getItem('access_token');
         const endpoint = (activeTab === 'found')
 					? `/api/v1/found-reports/${id}`
 					: `/api/v1/lost-reports/${id}`;
 
-				const response = await fetch(
-					`${API_URL}${endpoint}`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				);
+        const response = await apiFetch(`${API_URL}${endpoint}`, {
+          auth: "required"
+        })
 
         if (!response.ok) {
           const result = await response.json();
@@ -133,9 +128,7 @@ export default function UpdateReportForm({ user, showToast }) {
 
 		const fetchCategories = async () => {
 			try {
-				const response = await fetch(
-					`${API_URL}/api/v1/categories`,
-				);
+        const response = await apiFetch(`${API_URL}/api/v1/categories`)
 				if (response.ok) {
 					const data = await response.json();
 					setCategories(data.filter(cat => cat.is_active));
@@ -233,7 +226,6 @@ export default function UpdateReportForm({ user, showToast }) {
     // setError('');
 
     try {
-      const token = localStorage.getItem('access_token');
       const endpoint =
         activeTab === 'found'
           ? `/api/v1/found-reports/${id}`
@@ -262,11 +254,12 @@ export default function UpdateReportForm({ user, showToast }) {
         if (formData.finder_contact) form.append('finder_contact', formData.finder_contact);
       }
 
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      const response = await apiFetch(`${API_URL}${endpoint}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
+        auth: "required",
         body: form,
-      });
+      })
+
 
       if (!response.ok) {
         if (response.status === 403) {

@@ -48,7 +48,7 @@ const ReportCard = ({
 							/>
 
 							<span className="text-[10px] font-bold text-blue-700 whitespace-nowrap">
-								Punya lu
+								Laporan kamu
 							</span>
 						</div>
 					</div>

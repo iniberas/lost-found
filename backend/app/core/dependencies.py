@@ -122,6 +122,22 @@ def get_token_service() -> JWTTokenService:
     )
 
 
+async def _get_user_from_payload(
+    payload: dict,
+    user_repo: UserRepository,
+) -> Optional[User]:
+    email = payload.get("sub")
+    if not email:
+        return None
+    user = await user_repo.find_by_email(email)
+    if not user:
+        return None
+    if user.deleted_at is not None:
+        return None
+
+    return user
+
+
 def get_storage_service() -> StorageService:
     return StorageService(upload_dir=settings.UPLOAD_DIR, base_url=settings.BASE_URL)
 
@@ -182,28 +198,26 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
         payload = token_service.decode_token(token)
-        email: str = payload.get("sub")
-        if not email:
+
+        if payload.get("type") != "access":
             raise credentials_exception
+
+        user = await _get_user_from_payload(payload, user_repo)
+
+        if not user:
+            raise credentials_exception
+
+        return user
+
     except ValueError:
         raise credentials_exception
 
-    user = await user_repo.find_by_email(email)
-    if not user:
-        raise credentials_exception
-    if user.deleted_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Account has been deleted"
-        )
-    return user
-
 # buat di get report, soalnya bisa aja lom login gitu
 async def get_current_user_optional(
-    token: Optional[str] = Depends(
-        oauth2_scheme_optional
-    ),
+    token: Optional[str] = Depends(oauth2_scheme_optional),
     user_repo: UserRepository = Depends(get_user_repo),
     token_service: JWTTokenService = Depends(get_token_service),
 ) -> Optional[User]:
@@ -212,23 +226,15 @@ async def get_current_user_optional(
 
     try:
         payload = token_service.decode_token(token)
-        email: str = payload.get("sub")
 
-        if not email:
+        if payload.get("type") != "access":
             return None
+
+        return await _get_user_from_payload(payload, user_repo)
 
     except ValueError:
         return None
 
-    user = await user_repo.find_by_email(email)
-
-    if not user:
-        return None
-
-    if user.deleted_at is not None:
-        return None
-
-    return user
 
 async def get_current_admin(current_user: User = Depends(get_current_user)) -> Admin:
     if not isinstance(current_user, Admin) and not isinstance(current_user, SuperAdmin):
@@ -617,13 +623,6 @@ def get_update_user_form(
     phone_number: Optional[str] = Form(default=None),
 ) -> UpdateUserRequest:
     return UpdateUserRequest(name=name, email=email, phone_number=phone_number)
-
-
-def get_change_password_form(
-    old_password: str = Form(...), new_password: str = Form(...)
-) -> ChangePasswordRequest:
-    return ChangePasswordRequest(old_password=old_password, new_password=new_password)
-
 
 def get_create_category_form(name: str = Form(...)) -> CreateCategoryRequest:
     return CreateCategoryRequest(name=name)

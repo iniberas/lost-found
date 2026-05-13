@@ -34,22 +34,79 @@ function AppContent() {
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const tryRefreshToken = async () => {
+    const refreshToken =
+      localStorage.getItem("refresh_token");
+
+    if (!refreshToken) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/v1/auth/refresh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            refresh_token: refreshToken,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        handleLogout();
+        return null;
+      }
+
+      const data = await response.json();
+
+      localStorage.setItem(
+        "access_token",
+        data.access_token
+      );
+
+      return data.access_token;
+
+    } catch {
+      handleLogout();
+      return null;
+    }
+  };
+
   const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-
-    if (token) {
-      const isAdminPage = window.location.pathname.startsWith("/admin");
-      if (isAdminPage) {
-        fetchAdminProfile(token);
-      } else {
-        fetchProfile(token);
-      }
-    } else {
-      setLoading(false);
-    }
+    initializeAuth();
   }, []);
+
+  const initializeAuth = async () => {
+    const isAdminPage =
+      window.location.pathname.startsWith("/admin");
+
+    let token =
+      localStorage.getItem("access_token");
+
+    // ga ada access token
+    if (!token) {
+      token = await tryRefreshToken();
+    }
+
+    // masih ga ada
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    if (isAdminPage) {
+      fetchAdminProfile(token);
+    } else {
+      fetchProfile(token);
+    }
+  };
+
 
   const fetchProfile = async (token) => {
     try {

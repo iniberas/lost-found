@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiFetch } from "../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -32,7 +33,7 @@ export const useReports = (
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_URL}/api/v1/categories`,
 
         );
@@ -121,15 +122,9 @@ export const useReports = (
         params.append("user_ids", userId);
       }
 
-      const token = localStorage.getItem("access_token");
-      const response = await fetch(
-        `${API_URL}${endpoint}?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      const response = await apiFetch(`${API_URL}${endpoint}?${params}`, {
+        auth: "optional",
+      })
 
       if (!response.ok) {
         throw new Error("Gagal mengambil data laporan");

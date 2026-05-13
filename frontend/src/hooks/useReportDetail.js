@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -21,7 +22,7 @@ export function useReportDetail(id, activeTab) {
             ? `/api/v1/found-reports/${id}`
             : `/api/v1/lost-reports/${id}`;
 
-        const response = await fetch(`${API_URL}${endpoint}`);
+        const response = await apiFetch(`${API_URL}${endpoint}`);
 
         if (!response.ok) {
           const result = await response.json().catch(() => ({}));

@@ -1,7 +1,6 @@
 import uuid
 
 from app.core.dependencies import (
-    get_change_password_form,
     get_change_password_use_case,
     get_current_admin,
     get_current_user,
@@ -53,7 +52,7 @@ async def update_profile(
 
 @router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
-    body: ChangePasswordRequest = Depends(get_change_password_form),
+    body: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     use_case: ChangePasswordUseCase = Depends(get_change_password_use_case),
 ):

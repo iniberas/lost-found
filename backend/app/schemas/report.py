@@ -20,7 +20,7 @@ class LostReportResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime]
-    # reporter: UserResponse
+    reporter: UserResponse
     is_owner: bool = False
     report_status: ReportStatus
     report_type: ReportType
@@ -40,7 +40,7 @@ class FoundReportResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime]
-    # reporter: UserResponse
+    reporter: UserResponse
     # holder: UserResponse
     is_owner: bool = False
     report_status: ReportStatus

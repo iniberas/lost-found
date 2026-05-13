@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Mail, Lock, User, Phone, Eye, EyeOff } from "lucide-react";
+import { apiFetch } from "../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -57,11 +58,10 @@ export default function AuthPage({ onLoginSuccess }) {
     const endpoint = isLogin ? "/api/v1/auth/login" : "/api/v1/auth/register";
 
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await apiFetch(`${API_URL}${endpoint}`, {
+        method: "POST", 
         body: JSON.stringify(formData),
-      });
+      })
 
       const data = await response.json();
 

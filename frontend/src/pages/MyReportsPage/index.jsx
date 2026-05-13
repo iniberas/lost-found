@@ -19,6 +19,7 @@ import {
 } from "../../components/FilterHelpers";
 
 import { useTable } from "../../hooks/useTable";
+import { apiFetch } from "../../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const LIMIT = 15;
@@ -36,17 +37,17 @@ const TABS = [
 
 const HEADERS = [
   {
-    label: "Nama Barang",
+    label: "Report",
     key: "title",
     sortable: true,
   },
   {
-    label: "Lokasi Kejadian",
+    label: "Location",
     key: "location_name",
     sortable: false,
   },
   {
-    label: "Waktu Kejadian",
+    label: "Incident Date",
     key: "incident_date",
     sortable: true,
   },
@@ -56,7 +57,7 @@ const HEADERS = [
     sortable: true,
   },
   {
-    label: "Kategori",
+    label: "Category",
     key: "categories",
     sortable: false,
   },
@@ -102,7 +103,7 @@ export default function MyReportsPage({ user, handleLogout }) {
         const endpoint =
           activeTab === "lost" ? "lost-reports" : "found-reports";
 
-        const response = await fetch(`${API_URL}/api/v1/${endpoint}?${params}`);
+        const response = await apiFetch(`${API_URL}/api/v1/${endpoint}?${params}`);
 
         const data = await response.json();
 
@@ -218,7 +219,7 @@ export default function MyReportsPage({ user, handleLogout }) {
             <div className="space-y-3">
               <PageHeader title="Laporan Saya" />
               <p className="text-sm text-gray-500">
-                Kelola semua laporan barang hilang dan temuan Anda
+                Kelola semua laporan barang hilang dan temuan
               </p>
             </div>
           </div>

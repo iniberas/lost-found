@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
 from app.domain.interfaces.auth import IPasswordHasher, ITokenService
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -33,19 +33,41 @@ class JWTTokenService(ITokenService):
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=self.access_token_expire_minutes
         )
-        return self._encode({**data, "exp": expire, "type": "access"})
+
+        return self._encode({
+            **data,
+            "exp": expire,
+            "type": "access",
+        })
 
     def create_refresh_token(self, data: dict) -> str:
         expire = datetime.now(timezone.utc) + timedelta(
             days=self.refresh_token_expire_days
         )
-        return self._encode({**data, "exp": expire, "type": "refresh"})
+
+        return self._encode({
+            **data,
+            "exp": expire,
+            "type": "refresh",
+        })
 
     def decode_token(self, token: str) -> Dict[str, Any]:
         try:
-            return jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-        except JWTError as e:
-            raise ValueError(f"Invalid token: {e}")
+            return jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+            )
+
+        except ExpiredSignatureError:
+            raise ValueError("Token expired")
+
+        except JWTError:
+            raise ValueError("Invalid token")
 
     def _encode(self, data: dict) -> str:
-        return jwt.encode(data, self.secret_key, algorithm=self.algorithm)
+        return jwt.encode(
+            data,
+            self.secret_key,
+            algorithm=self.algorithm,
+        )

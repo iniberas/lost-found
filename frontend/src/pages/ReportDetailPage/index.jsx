@@ -19,6 +19,7 @@ import {
 	Shield,
 	FileText,
 	ArrowLeft,
+	QrCode,
 } from "lucide-react";
 
 import {
@@ -36,6 +37,7 @@ import { IPB_COLORS } from "../../constants/colors";
 import ConfirmModal from "../../components/ConfirmModal";
 import ReportCard from "../../components/ReportCard";
 import ViewDetailModal, { CopyButton } from "../../components/ViewDetailModal";
+import ReportQrModal from "./ReportQrModal";
 
 import ResolveModal from "./ResolveModal";
 import ContactRequestModal from "./ContactRequestModal";
@@ -44,6 +46,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import UserLayout from "../../layouts/UserLayout";
+import { apiFetch } from "../../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const DEFAULT_CENTER = [-6.5607, 106.7265];
@@ -100,9 +103,11 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 	const [existingContactRequest, setExistingContactRequest] = useState(null);
 	const [incomingRequestCount, setIncomingRequestCount] = useState(0);
-	const [checkingContactRequest, setCheckingContactRequest] = useState(true);
+	const [checkingContactRequest, setCheckingContactRequest] = useState(false);
 
 	const [showRequestMessage, setShowRequestMessage] = useState(false);
+
+	const [showQrModal, setShowQrModal] = useState(false);
 
 	// contact info modal state
 	const [contactInfoModal, setContactInfoModal] = useState({
@@ -115,24 +120,16 @@ export default function ReportDetailPage({ user, handleLogout }) {
 		try {
 			setCheckingContactRequest(true);
 
-			const token = localStorage.getItem("access_token");
-
 			const params = new URLSearchParams({
 				request_type: "outgoing",
 				report_id: report.id,
 				limit: 1,
 			});
 
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests?${params.toString()}`,
-				{
-					method: "GET",
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			);
-
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests?${params.toString()}`, {
+				method: "GET",
+				auth: "required",
+			})
 			if (!response.ok) {
 				throw new Error("Failed to fetch contact request");
 			}
@@ -154,8 +151,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 	const fetchIncomingRequests = async () => {
 		try {
-			const token = localStorage.getItem("access_token");
-
 			const params = new URLSearchParams({
 				request_type: "incoming",
 				report_id: report.id,
@@ -163,14 +158,9 @@ export default function ReportDetailPage({ user, handleLogout }) {
 				limit: 1,
 			});
 
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests?${params.toString()}`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			);
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests?${params.toString()}`, {
+				auth: "required"
+			})
 
 			if (!response.ok) {
 				throw new Error();
@@ -192,16 +182,9 @@ export default function ReportDetailPage({ user, handleLogout }) {
 				data: null,
 			});
 
-			const token = localStorage.getItem("access_token");
-
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests/${requestId}/contact`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				}
-			);
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/contact`, {
+				auth: "required"
+			})
 
 			const result = await response
 				.json()
@@ -255,21 +238,14 @@ export default function ReportDetailPage({ user, handleLogout }) {
 	useEffect(() => {
 		const fetchReport = async () => {
 			setLoading(true);
-			const token = localStorage.getItem("access_token");
-
 			try {
 				const endpoint = isFound
 					? `/api/v1/found-reports/${id}`
 					: `/api/v1/lost-reports/${id}`;
 
-				const response = await fetch(
-					`${API_URL}${endpoint}`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				);
+				const response = await apiFetch(`${API_URL}${endpoint}`, {
+					auth: "optional"
+				})
 
 				if (!response.ok) {
 					throw new Error(
@@ -294,7 +270,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 	useEffect(() => {
 		if (report) {
 			if (isOwnReport) fetchIncomingRequests();
-			else fetchExistingContactRequest();
+			else if (user) fetchExistingContactRequest();
 		}
 	}, [report]);
 
@@ -307,21 +283,13 @@ export default function ReportDetailPage({ user, handleLogout }) {
 			if (!id) return;
 
 			setLoadingSuggestions(true);
-			const token = localStorage.getItem("access_token");
 
 			try {
 				const endpoint = isFound
 					? `/api/v1/found-reports/${id}/potential-matches`
 					: `/api/v1/lost-reports/${id}/potential-matches`;
 
-				const response = await fetch(
-					`${API_URL}${endpoint}`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				);
+				const response = await apiFetch(`${API_URL}${endpoint}`)
 
 				if (!response.ok) throw new Error();
 
@@ -409,8 +377,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 		setResolving(true);
 
 		try {
-			const token = localStorage.getItem("access_token");
-
 			const endpoint = isFound
 				? `/api/v1/found-reports/${id}/resolve`
 				: `/api/v1/lost-reports/${id}/resolve`;
@@ -432,23 +398,16 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					},
 				);
 
-				response = await fetch(`${API_URL}${endpoint}`, {
+				response = await apiFetch(`${API_URL}${endpoint}`, {
 					method: "POST",
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
+					auth: "required",
 					body: formData,
-				});
+				})
 			} else {
-				response = await fetch(
-					`${API_URL}${endpoint}`,
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				);
+				response = await apiFetch(`${API_URL}${endpoint}`, {
+					method: "POST",
+					auth: "required"
+				})
 			}
 
 			let result = null;
@@ -489,18 +448,14 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 	const handleDeleteReport = async () => {
 		try {
-			const token = localStorage.getItem("access_token");
-
 			const endpoint = isFound
 				? `/api/v1/found-reports/${id}`
 				: `/api/v1/lost-reports/${id}`;
 
-			const response = await fetch(`${API_URL}${endpoint}`, {
+			const response = await apiFetch(`${API_URL}${endpoint}`, {
 				method: "DELETE",
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			});
+				auth: "required",
+			})
 
 			if (!response.ok) {
 				throw new Error("Gagal menghapus laporan");
@@ -515,23 +470,15 @@ export default function ReportDetailPage({ user, handleLogout }) {
 	const handleContactRequest = async () => {
 		try {
 			setSubmittingContact(true);
-			const token = localStorage.getItem("access_token");
-
-			const response = await fetch(
-				`${API_URL}/api/v1/contact-requests`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({
-						report_id: report.id,
-						report_type: report.report_type,
-						message: contactMessage,
-					}),
-				}
-			);
+			const response = await apiFetch(`${API_URL}/api/v1/contact-requests`, {
+				method: "POST",
+				auth: "required",
+				body: JSON.stringify({
+					report_id: report.id,
+					report_type: report.report_type,
+					message: contactMessage,
+				}),
+			})
 
 			const data = await response.json();
 
@@ -555,6 +502,14 @@ export default function ReportDetailPage({ user, handleLogout }) {
 		} finally {
 			setSubmittingContact(false);
 		}
+	};
+
+	const handleOpenContactModal = () => {
+		if (!user) {
+			navigate("/auth");
+			return;
+		}
+		setShowContactModal(true);
 	};
 
 	if (loading) {
@@ -774,6 +729,90 @@ export default function ReportDetailPage({ user, handleLogout }) {
 								</div>
 							</div>
 
+							{/* REPORTER / OWNER INFO */}
+							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+								<h3 className="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">
+									{isOwnReport ? "Your Report" : "Reported By"}
+								</h3>
+
+								<div className="flex items-center gap-3">
+									<div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
+										<UserIcon size={18} className="text-blue-600" />
+									</div>
+
+									<div className="min-w-0">
+										<p className="text-xs text-gray-400 mb-1">
+											{isOwnReport ? "Owner" : "Reporter"}
+										</p>
+
+										<p className="font-semibold text-gray-800 truncate">
+											{report.reporter?.name || "-"}
+										</p>
+									</div>
+								</div>
+							</div>
+
+							{/* STORAGE LOCATION */}
+							{isFound && report.storage_location && (
+								<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+									<div>
+										<h3 className="text-base font-bold text-gray-900">
+											Storage Location
+										</h3>
+
+										<p className="text-sm text-gray-500 mt-1">
+											Barang ini disimpan oleh admin dan saat ini berada di lokasi berikut.
+										</p>
+									</div>
+
+									<div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+										<div className="flex items-start gap-3">
+											<div className="p-2 rounded-xl bg-white border border-blue-100">
+												<MapPin size={18} className="text-blue-600" />
+											</div>
+
+											<div className="min-w-0 flex-1">
+												<h4 className="font-bold text-blue-900">
+													{report.storage_location.name}
+												</h4>
+
+												<p className="text-sm text-blue-700 mt-1 whitespace-pre-wrap">
+													{report.storage_location.description || "-"}
+												</p>
+											</div>
+										</div>
+									</div>
+
+									{report.storage_location.location_point && (
+										<div className="h-[260px] rounded-2xl overflow-hidden border border-gray-200">
+											<MapContainer
+												center={[
+													report.storage_location.location_point.latitude,
+													report.storage_location.location_point.longitude,
+												]}
+												zoom={17}
+												scrollWheelZoom
+												style={{ height: "100%", width: "100%" }}
+											>
+												<TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+												<Marker
+													icon={markerIcon}
+													position={[
+														report.storage_location.location_point.latitude,
+														report.storage_location.location_point.longitude,
+													]}
+												>
+													<Popup>
+														{report.storage_location.name}
+													</Popup>
+												</Marker>
+											</MapContainer>
+										</div>
+									)}
+								</div>
+							)}
+
 							{/* Actions */}
 							<div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-6">
 								<h3 className="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">
@@ -842,6 +881,16 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													<Edit size={16} />
 													Edit Report
 												</button>
+
+												{isFound && (
+													<button
+														onClick={() => setShowQrModal(true)}
+														className="w-full py-2.5 rounded-xl text-sm font-semibold bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
+													>
+														<QrCode size={16} />
+														Show Handover QR
+													</button>
+												)}
 												<button
 													onClick={() => handleResolveClick()}
 													className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
@@ -914,9 +963,22 @@ export default function ReportDetailPage({ user, handleLogout }) {
 																			Lihat selengkapnya
 																		</button>
 																	</p>
+																	{showRequestMessage && existingContactRequest.response_message && (
+																		<div className="mt-3 p-3 rounded-lg bg-white/70 border border-yellow-100 text-gray-700 text-sm whitespace-pre-wrap">
+																			{existingContactRequest.response_message}
+																		</div>
+																	)}
 																</div>
+																{existingContactRequest.response_message && (
+																	<button
+																		onClick={() => setShowRequestMessage(!showRequestMessage)}
+																		className="w-full py-2 rounded-xl border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 transition-colors"
+																	>
+																		{showRequestMessage ? "Hide Response Message" : "Show Response Message"}
+																	</button>
+																)}
 																<button
-																	onClick={() => setShowContactModal(true)}
+																	onClick={handleOpenContactModal}
 																	className="w-full py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2"
 																>
 																	Kirim Ulang Request
@@ -938,7 +1000,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 																	</p>
 																</div>
 																<button
-																	onClick={() => setShowContactModal(true)}
+																	onClick={handleOpenContactModal}
 																	className="w-full py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2"
 																>
 																	Kirim Ulang Request
@@ -948,7 +1010,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 													</div>
 												) : (
 													<button
-														onClick={() => setShowContactModal(true)}
+														onClick={handleOpenContactModal}
 														className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
 														style={{ backgroundColor: IPB_COLORS.blue.primary }}
 													>
@@ -1139,6 +1201,12 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					</div>
 				)}
 			</ViewDetailModal>
+
+			<ReportQrModal
+				open={showQrModal}
+				onClose={() => setShowQrModal(false)}
+				reportId={report.id}
+			/>
 
 			<Toast
 				show={Boolean(toast)}
