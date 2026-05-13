@@ -67,7 +67,7 @@ function InfoRow({ icon: Icon, text }) {
 				<Icon size={15} className="text-gray-400" />
 			</div>
 
-			<span className="font-medium truncate">{text}</span>
+			<span className="font-medium break-rows">{text}</span>
 		</div>
 	);
 }
@@ -573,7 +573,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 					<div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
 						<div className="flex items-start justify-between gap-6 flex-col lg:flex-row">
 							{/* LEFT */}
-							<div className="flex items-start gap-5">
+							<div className="flex items-start gap-5 min-w-0 w-full">
 								<div
 									className={`w-6 h-6 md:w-16 md:h-16 rounded-2xl flex items-center justify-center border shrink-0 ${isFound
 										? "bg-blue-50 border-blue-100"
@@ -590,9 +590,9 @@ export default function ReportDetailPage({ user, handleLogout }) {
 								</div>
 
 								{/* TITLE */}
-								<div className="space-y-3">
+								<div className="space-y-3 min-w-0">
 									<div>
-										<h1 className="text-2xl font-black text-gray-800 leading-tight">
+										<h1 className="text-2xl font-black text-gray-800 leading-tight break-words">
 											{report.title || "Untitled Item"}
 										</h1>
 									</div>
@@ -606,9 +606,9 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 										<div className="w-1 h-1 rounded-full bg-gray-300" />
 
-										<div className="flex items-center gap-2 text-sm text-gray-500">
-											<MapPin size={15} />
-											{report.location_name || "-"}
+										<div className="flex items-center gap-2 text-sm text-gray-500 min-w-0">
+											<MapPin size={15} className="shrink-0" />
+											<span className="truncate">{report.location_name || "-"}</span>
 										</div>
 									</div>
 								</div>
@@ -616,7 +616,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 						</div>
 					</div>
 
-					{/* CONTENT */}
 					{/* CONTENT */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -667,7 +666,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 							</div>
 							<div>
 								<h3 className="text-lg font-bold mb-2">Description</h3>
-								<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm">
+								<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm break-words whitespace-pre-wrap">
 									{report.description || "-"}
 								</div>
 							</div>
@@ -679,7 +678,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 								<MapPin size={18} style={{ color: IPB_COLORS.blue.primary }} />
 								<h3 className="text-lg font-bold">Location</h3>
 							</div>
-							<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm">
+							<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm break-words">
 								{report.location_name || "-"}
 							</div>
 							<div className="h-[400px] rounded-2xl overflow-hidden border border-gray-200">
@@ -723,7 +722,7 @@ export default function ReportDetailPage({ user, handleLogout }) {
 								</div>
 								<div>
 									<h3 className="text-lg font-bold mb-2">Description</h3>
-									<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm">
+									<div className="w-full p-4 bg-white border border-gray-200 rounded-xl text-sm font-medium shadow-sm break-words whitespace-pre-wrap">
 										{report.description || "-"}
 									</div>
 								</div>
