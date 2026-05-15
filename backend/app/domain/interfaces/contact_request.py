@@ -50,3 +50,15 @@ class IContactRequestRepository(ABC):
     @abstractmethod
     def delete(self, request_id: uuid.UUID) -> None:
         pass
+
+
+
+class IContactRequestService(ABC):
+    @abstractmethod
+    async def close_pending_requests_for_report(
+        self,
+        report_id: uuid.UUID,
+        actor_id: uuid.UUID | None,
+        reason: str,
+    ) -> None:
+        pass

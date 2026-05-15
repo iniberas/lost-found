@@ -13,6 +13,7 @@ class RequestStatus(str, enum.Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     CANCELED = "canceled"
+    CLOSED = "closed"
 
 
 class ReportType(str, enum.Enum):

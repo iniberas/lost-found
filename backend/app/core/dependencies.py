@@ -79,6 +79,8 @@ from app.infrastructure.repositories.storage_location import StorageLocationRepo
 from app.infrastructure.repositories.user import UserRepository
 from app.infrastructure.services.auth import JWTTokenService, PasslibHasher
 from app.infrastructure.services.storage import StorageService
+from app.infrastructure.services.contact_request import ContactRequestService
+
 from app.schemas.admin import (
     AdminCreateHandOverReportRequest,
     AdminUpdateFoundReportRequest,
@@ -101,6 +103,7 @@ from fastapi import Depends, Form, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-thing")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -347,12 +350,21 @@ def get_search_lost_reports_use_case(
 ) -> SearchLostReportsUseCase:
     return SearchLostReportsUseCase(repo)
 
+def get_contact_request_service(
+    request_repo: ContactRequestRepository = Depends(get_contact_request_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> ContactRequestService:
+    return ContactRequestService(
+        request_repo=request_repo,
+        audit_log_repo=audit_log_repo,
+    )
 
 def get_resolve_lost_report_use_case(
     repo: LostReportRepository = Depends(get_lost_report_repo),
     audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+    contact_request_service: ContactRequestService = Depends(get_contact_request_service)
 ) -> ResolveLostReportUseCase:
-    return ResolveLostReportUseCase(repo, audit_log_repo)
+    return ResolveLostReportUseCase(repo, audit_log_repo, contact_request_service)
 
 
 def get_delete_lost_report_use_case(
@@ -411,8 +423,9 @@ def get_resolve_found_report_use_case(
     proof_repo: ProofRepository = Depends(get_proof_repo),
     storage: StorageService = Depends(get_storage_service),
     audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+    contact_request_service: ContactRequestService = Depends(get_contact_request_service)
 ) -> ResolveFoundReportUseCase:
-    return ResolveFoundReportUseCase(report_repo, proof_repo, storage, audit_log_repo)
+    return ResolveFoundReportUseCase(report_repo, proof_repo, storage, audit_log_repo, contact_request_service)
 
 
 def get_hand_over_to_admin_use_case(

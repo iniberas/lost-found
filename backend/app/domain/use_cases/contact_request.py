@@ -310,6 +310,7 @@ class GetContactRequestNotificationCountUseCase:
             "incoming_pending": incoming_pending,
             "outgoing_approved": outgoing_updates["approved"],
             "outgoing_rejected": outgoing_updates["rejected"],
+            "outgoing_closed": outgoing_updates["closed"],
         }
 
 class MarkContactRequestResponseSeenUseCase:
@@ -339,6 +340,7 @@ class MarkContactRequestResponseSeenUseCase:
         if request.status not in [
             RequestStatus.APPROVED,
             RequestStatus.REJECTED,
+            RequestStatus.CLOSED,
         ]:
             raise ValueError(
                 "Only approved/rejected requests can be marked as seen"

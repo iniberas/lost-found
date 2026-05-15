@@ -262,6 +262,7 @@ class ContactRequestRepository(IContactRequestRepository):
                 ContactRequestModel.status.in_([
                     RequestStatus.APPROVED,
                     RequestStatus.REJECTED,
+                    RequestStatus.CLOSED,
                 ]),
                 ContactRequestModel.is_response_seen == False,
             )
@@ -273,6 +274,7 @@ class ContactRequestRepository(IContactRequestRepository):
         counts = {
             "approved": 0,
             "rejected": 0,
+            "closed": 0,
         }
 
         for status, count in result.all():
@@ -280,6 +282,8 @@ class ContactRequestRepository(IContactRequestRepository):
                 counts["approved"] = count
             elif status == RequestStatus.REJECTED:
                 counts["rejected"] = count
+            elif status == RequestStatus.CLOSED:
+                counts["closed"] = count
 
         return counts
 

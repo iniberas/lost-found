@@ -13,6 +13,7 @@ class RequestStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     CANCELED = "canceled"
+    CLOSED = "closed"
 
 
 class ContactRequest:
@@ -204,6 +205,22 @@ class ContactRequest:
     def cancel(self):
         self._ensure_pending()
         self._status = RequestStatus.CANCELED
+        self._touch()
+
+    def close(self, response_message: Optional[str] = None):
+        self._ensure_pending()
+
+        if response_message is not None:
+            response_message = self._clean_text(
+                response_message,
+                "Response message"
+            )
+            self._validate_message(response_message)
+
+        self._status = RequestStatus.CLOSED
+        self._responded_at = datetime.now(timezone.utc)
+        self._response_message = response_message
+        self._is_response_seen = False
         self._touch()
 
     def update_message(self, new_message: str):

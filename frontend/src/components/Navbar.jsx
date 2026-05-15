@@ -73,7 +73,11 @@ const Navbar = ({ user, handleLogout, contactRequestNotificationCount }) => {
                 )}
 
                 {contactRequestNotificationCount.outgoing_approved > 0 && (
-                  <span className="-ml-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#314CBB] z-10" />
+                  <span className="-ml-1 w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-[#314CBB] z-10" />
+                )}
+
+                {contactRequestNotificationCount.outgoing_closed > 0 && (
+                  <span className="-ml-1 w-2.5 h-2.5 rounded-full bg-gray-400 ring-2 ring-[#314CBB] z-0" />
                 )}
               </div>
             </button>
@@ -103,25 +107,37 @@ const Navbar = ({ user, handleLogout, contactRequestNotificationCount }) => {
                     }}
                     className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center justify-between transition-colors font-medium"
                   >
-                    <div className="flex items-center gap-2">
-                      <Inbox size={16} className="text-[#314CBB]" />
-                      Permintaan Kontak
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Inbox
+                        size={16}
+                        className="text-[#314CBB] shrink-0"
+                      />
+
+                      <span>
+                        Permintaan Kontak
+                      </span>
 
                       {contactRequestNotificationCount.incoming_pending > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-yellow-400 text-white text-[10px] font-bold">
+                        <span className="px-1.5 py-1 rounded-full bg-yellow-400 text-white text-[10px] font-bold leading-none shrink-0">
                           {contactRequestNotificationCount.incoming_pending}
                         </span>
                       )}
 
                       {contactRequestNotificationCount.outgoing_rejected > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-red-400 text-white text-[10px] font-bold">
+                        <span className="px-1.5 py-1 rounded-full bg-red-400 text-white text-[10px] font-bold leading-none shrink-0">
                           {contactRequestNotificationCount.outgoing_rejected}
                         </span>
                       )}
 
                       {contactRequestNotificationCount.outgoing_approved > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-emerald-400 text-white text-[10px] font-bold">
+                        <span className="px-1.5 py-1 rounded-full bg-green-400 text-white text-[10px] font-bold leading-none shrink-0">
                           {contactRequestNotificationCount.outgoing_approved}
+                        </span>
+                      )}
+
+                      {contactRequestNotificationCount.outgoing_closed > 0 && (
+                        <span className="px-1.5 py-1 rounded-full bg-gray-400 text-white text-[10px] font-bold leading-none shrink-0">
+                          {contactRequestNotificationCount.outgoing_closed}
                         </span>
                       )}
                     </div>
@@ -148,7 +164,7 @@ const Navbar = ({ user, handleLogout, contactRequestNotificationCount }) => {
                       setIsDropdownOpen(false);
                       handleLogout();
                     }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
                   >
                     <LogOut size={16} />
                     Logout

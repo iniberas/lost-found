@@ -60,3 +60,4 @@ class ContactRequestNotificationCountResponse(BaseModel):
     incoming_pending: int
     outgoing_approved: int
     outgoing_rejected: int
+    outgoing_closed: int

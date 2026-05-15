@@ -20,7 +20,9 @@ from app.domain.interfaces.report import IFoundReportRepository, ILostReportRepo
 from app.domain.interfaces.storage import IStorageService
 from app.domain.interfaces.storage_location import IStorageLocationRepository
 from app.domain.interfaces.user import IUserRepository
+from app.domain.interfaces.contact_request import IContactRequestService
 from app.schemas.pagination import Paginated
+
 
 
 class CreateLostReportUseCase:
@@ -504,10 +506,13 @@ class UpdateFoundReportUseCase:
 
 class ResolveLostReportUseCase:
     def __init__(
-        self, report_repo: ILostReportRepository, audit_log_repo: IAuditLogRepository
+        self, report_repo: ILostReportRepository,
+        audit_log_repo: IAuditLogRepository,
+        contact_request_service: IContactRequestService
     ):
         self.report_repo = report_repo
         self.audit_log_repo = audit_log_repo
+        self.contact_request_service = contact_request_service
 
     async def execute(self, report_id: uuid.UUID, user: User) -> LostReport:
         report = await self.report_repo.get_by_id(report_id)
@@ -518,6 +523,11 @@ class ResolveLostReportUseCase:
 
         report.confirm_found()
         await self.report_repo.save(report)
+        await self.contact_request_service.close_pending_requests_for_report(
+            report_id=report.id,
+            actor_id=user.id,
+            reason="Laporan sudah di-resolve oleh pelapor.",
+        )
 
         log = AuditLog.new_log(
             actor_id=user.id,
@@ -538,11 +548,13 @@ class ResolveFoundReportUseCase:
         proof_repo: IProofRepository,
         storage_service: IStorageService,
         audit_log_repo: IAuditLogRepository,
+        contact_request_service: IContactRequestService
     ):
         self.report_repo = report_repo
         self.proof_repo = proof_repo
         self.storage_service = storage_service
         self.audit_log_repo = audit_log_repo
+        self.contact_request_service = contact_request_service
 
     async def execute(
         self,
@@ -566,6 +578,12 @@ class ResolveFoundReportUseCase:
 
             await self.proof_repo.save(proof)
             await self.report_repo.save(report)
+
+            await self.contact_request_service.close_pending_requests_for_report(
+                report_id=report.id,
+                actor_id=user.id,
+                reason="Laporan sudah di-resolve oleh pelapor.",
+            )
 
             log = AuditLog.new_log(
                 actor_id=user.id,

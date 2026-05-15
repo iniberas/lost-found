@@ -8,6 +8,7 @@ import {
 	Mail,
 	Phone,
 	MessageCircleMore,
+	Archive
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch, buildParams } from "../../utils/api";
@@ -269,12 +270,17 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 		message
 	) => {
 		try {
+			const trimmedMessage = message?.trim();
+			const body =
+				type === "approve" && !trimmedMessage
+					? {}
+					: { message: trimmedMessage };
+
 			const response = await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/${type}`, {
 				method: "POST",
 				auth: "required",
-				body: JSON.stringify({ message: message }),
+				body: JSON.stringify(body),
 			})
-
 
 			const data = await response.json();
 
@@ -402,10 +408,11 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 
 	const renderStatus = (status) => {
 		const variants = {
-			pending: "warning",
-			approved: "success",
-			rejected: "danger",
-			canceled: "secondary",
+			pending: "pending",
+			approved: "approved",
+			rejected: "rejected",
+			canceled: "canceled",
+			closed: "closed",
 		};
 
 		const labels = {
@@ -413,11 +420,12 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 			approved: "Approved",
 			rejected: "Rejected",
 			canceled: "Canceled",
+			closed: "Closed",
 		};
 
 		return (
 			<StatusBadge
-				variant={variants[status] ?? "secondary"}
+				variant={variants[status] ?? "closed"}
 				label={labels[status] ?? status}
 			/>
 		);
@@ -447,7 +455,12 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 				{
 					count:
 						contactRequestNotificationCount.outgoing_approved,
-					color: "bg-emerald-400",
+					color: "bg-green-400",
+				},
+				{
+					count:
+						contactRequestNotificationCount.outgoing_closed,
+					color: "bg-gray-400",
 				},
 			],
 		},
@@ -575,10 +588,13 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 														row.status === "approved" && (
 															<div className="w-2.5 h-2.5 rounded-full bg-green-400" />
 														)}
-
 													{!row.is_response_seen &&
 														row.status === "rejected" && (
 															<div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+														)}
+													{!row.is_response_seen &&
+														row.status === "closed" && (
+															<div className="w-2.5 h-2.5 rounded-full bg-gray-400" />
 														)}
 												</div>
 											)}
@@ -709,10 +725,17 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 												<CheckCircle2 size={14} className="text-green-500" />
 											)}
 
-											{(row.status === "rejected" ||
-												row.status === "canceled") && (
-													<XCircle size={14} className="text-red-500" />
-												)}
+											{row.status === "rejected" && (
+												<XCircle size={14} className="text-red-500" />
+											)}
+
+											{row.status === "canceled" && (
+												<XCircle size={14} className="text-gray-500" />
+											)}
+
+											{row.status === "closed" && (
+												<Archive size={14} className="text-gray-500" />
+											)}
 
 											{renderStatus(row.status)}
 
@@ -745,6 +768,9 @@ export default function MyContactRequestsPage({ user, handleLogout, contactReque
 																)}
 																{row.status === "rejected" && (
 																	<div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-400 ring-2 ring-white" />
+																)}
+																{row.status === "closed" && (
+																	<div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-gray-400 ring-2 ring-white" />
 																)}
 															</>
 														)}

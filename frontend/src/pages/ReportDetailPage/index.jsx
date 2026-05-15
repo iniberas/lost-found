@@ -71,7 +71,7 @@ function InfoRow({ icon: Icon, text }) {
 	);
 }
 
-export default function ReportDetailPage({ user, handleLogout }) {
+export default function ReportDetailPage({ user, handleLogout, refreshContactRequestNotificationCount }) {
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -438,6 +438,8 @@ export default function ReportDetailPage({ user, handleLogout }) {
 			setProofPhotos([]);
 			setProofPhotoPreviews([]);
 			setShowResolveModal(false);
+			refreshContactRequestNotificationCount();
+			
 		} catch (err) {
 			showToast(err.message, "error");
 		} finally {

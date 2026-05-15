@@ -43,6 +43,7 @@ function AppContent() {
       incoming_pending: 0,
       outgoing_approved: 0,
       outgoing_rejected: 0,
+      outgoing_closed: 0,
     });
 
   const tryRefreshToken = async () => {
@@ -169,6 +170,7 @@ function AppContent() {
           incoming_pending: data.incoming_pending || 0,
           outgoing_approved: data.outgoing_approved || 0,
           outgoing_rejected: data.outgoing_rejected || 0,
+          outgoing_closed: data.outgoing_closed || 0,
         });
       }
     } catch (err) {
@@ -243,7 +245,7 @@ function AppContent() {
             handleLogout={handleLogout}
             contactRequestNotificationCount={contactRequestNotificationCount}
           >
-            <ReportDetailPage user={user} handleLogout={handleLogout} />
+            <ReportDetailPage user={user} handleLogout={handleLogout} refreshContactRequestNotificationCount={fetchContactRequestNotificationCount} />
           </UserLayout>
         }
       />

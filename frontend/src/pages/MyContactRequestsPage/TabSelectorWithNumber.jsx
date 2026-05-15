@@ -19,7 +19,7 @@ export default function TabSelectorWithNumber({
         >
           <span>{tab.label}</span>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {tab.badges?.map(
               (badge, index) =>
                 badge.count > 0 && (
