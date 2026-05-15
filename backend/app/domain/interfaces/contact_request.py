@@ -41,5 +41,12 @@ class IContactRequestRepository(ABC):
         pass
 
     @abstractmethod
+    async def count_outgoing_unseen_updates(
+        self,
+        requester_id: uuid.UUID,
+    ) -> int:
+        pass
+
+    @abstractmethod
     def delete(self, request_id: uuid.UUID) -> None:
         pass

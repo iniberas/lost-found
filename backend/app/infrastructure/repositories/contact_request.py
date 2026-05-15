@@ -50,6 +50,7 @@ class ContactRequestRepository(IContactRequestRepository):
             message=model.message,
             responded_at=model.responded_at,
             response_message=model.response_message,
+            is_response_seen=model.is_response_seen,
         )
 
     async def save(self, request: ContactRequest) -> None:
@@ -61,6 +62,7 @@ class ContactRequestRepository(IContactRequestRepository):
             existing.status = request.status.value
             existing.message = request.message
             existing.response_message = request.response_message
+            existing.is_response_seen = request.is_response_seen
         else:
             self.session.add(
                 ContactRequestModel(
@@ -245,6 +247,41 @@ class ContactRequestRepository(IContactRequestRepository):
         result = await self.session.execute(stmt)
 
         return result.scalar_one()
+
+    async def count_outgoing_unseen_updates(
+        self,
+        requester_id: uuid.UUID,
+    ) -> dict[str, int]:
+        stmt = (
+            select(
+                ContactRequestModel.status,
+                func.count().label("count"),
+            )
+            .where(
+                ContactRequestModel.requester_id == requester_id,
+                ContactRequestModel.status.in_([
+                    RequestStatus.APPROVED,
+                    RequestStatus.REJECTED,
+                ]),
+                ContactRequestModel.is_response_seen == False,
+            )
+            .group_by(ContactRequestModel.status)
+        )
+
+        result = await self.session.execute(stmt)
+
+        counts = {
+            "approved": 0,
+            "rejected": 0,
+        }
+
+        for status, count in result.all():
+            if status == RequestStatus.APPROVED:
+                counts["approved"] = count
+            elif status == RequestStatus.REJECTED:
+                counts["rejected"] = count
+
+        return counts
 
     def _apply_filters(self, stmt, requester_id, target_user_id, report_id, status):
         if requester_id:

@@ -4,8 +4,6 @@ import { useNavigate } from "react-router-dom";
 
 import { CheckCircle2, XCircle, Clock3 } from "lucide-react";
 
-import UserLayout from "../../layouts/UserLayout";
-
 import PageHeader from "../../components/PageHeader";
 import Toast from "../../components/Toast";
 import Table from "../../components/Table";
@@ -184,7 +182,7 @@ export default function MyReportsPage({ user, handleLogout }) {
   };
 
   const handleTabChange = (tab) => {
-		if (tab === activeTab) return;
+    if (tab === activeTab) return;
 
     setActiveTab(tab);
     // table.handleResetFilter(); // mending tetep apply filter aja gasihhh
@@ -204,7 +202,7 @@ export default function MyReportsPage({ user, handleLogout }) {
   };
 
   return (
-    <UserLayout user={user} handleLogout={handleLogout}>
+    <>
       <Toast
         show={Boolean(toast)}
         message={toast?.message}
@@ -284,11 +282,10 @@ export default function MyReportsPage({ user, handleLogout }) {
                           key={cat.id}
                           type="button"
                           onClick={() => toggleCategory(cat.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                            table.filterInput.categories?.includes(cat.id)
-                              ? "bg-blue-50 border-blue-200 text-blue-700"
-                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                          }`}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${table.filterInput.categories?.includes(cat.id)
+                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                            : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                            }`}
                         >
                           {cat.name}
                         </button>
@@ -317,9 +314,8 @@ export default function MyReportsPage({ user, handleLogout }) {
             totalPages={table.totalPages}
             onPageChange={table.setPage}
             isEmpty={table.items.length === 0}
-            emptyMessage={`Belum ada laporan ${
-              activeTab === "lost" ? "kehilangan" : "temuan"
-            }`}
+            emptyMessage={`Belum ada laporan ${activeTab === "lost" ? "kehilangan" : "temuan"
+              }`}
           >
             {table.items.map((item) => (
               <tr
@@ -342,7 +338,7 @@ export default function MyReportsPage({ user, handleLogout }) {
                 </td>
 
                 {/* LOCATION */}
-                <td className="px-6 py-4 text-sm text-gray-600">
+                <td className="max-w-[240px] px-6 py-4 text-sm text-gray-600 truncate">
                   {item.location_name || "—"}
                 </td>
 
@@ -383,6 +379,6 @@ export default function MyReportsPage({ user, handleLogout }) {
           </Table>
         </div>
       </div>
-    </UserLayout>
+    </>
   );
 }

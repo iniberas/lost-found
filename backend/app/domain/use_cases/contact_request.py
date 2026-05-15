@@ -290,3 +290,77 @@ class GetContactAccessUseCase:
             )
 
         return request
+
+
+class GetContactRequestNotificationCountUseCase:
+    def __init__(self, repo: IContactRequestRepository):
+        self.repo = repo
+
+    async def execute(self, user_id: uuid.UUID):
+        incoming_pending = await self.repo.count_search(
+            target_user_id=user_id,
+            status=RequestStatus.PENDING,
+        )
+
+        outgoing_updates = await self.repo.count_outgoing_unseen_updates(
+            requester_id=user_id,
+        )
+
+        return {
+            "incoming_pending": incoming_pending,
+            "outgoing_approved": outgoing_updates["approved"],
+            "outgoing_rejected": outgoing_updates["rejected"],
+        }
+
+class MarkContactRequestResponseSeenUseCase:
+    def __init__(
+        self,
+        repo: IContactRequestRepository,
+        audit_log_repo: IAuditLogRepository,
+    ):
+        self.repo = repo
+        self.audit_log_repo = audit_log_repo
+
+    async def execute(
+        self,
+        actor: User,
+        request_id: uuid.UUID,
+    ) -> ContactRequest:
+        request = await self.repo.get_by_id(request_id)
+
+        if not request:
+            raise ValueError("Contact request not found")
+
+        if request.requester.id != actor.id:
+            raise PermissionError(
+                "Only the requester can mark this response as seen"
+            )
+
+        if request.status not in [
+            RequestStatus.APPROVED,
+            RequestStatus.REJECTED,
+        ]:
+            raise ValueError(
+                "Only approved/rejected requests can be marked as seen"
+            )
+
+        if request.is_response_seen:
+            return request
+
+        request.is_response_seen = True
+
+        await self.repo.save(request)
+
+        log = AuditLog.new_log(
+            actor_id=actor.id,
+            entity_type=EntityType.CONTACT_REQUEST,
+            entity_id=request.id,
+            action=ActionType.UPDATE,
+            changes={
+                "is_response_seen": True,
+            },
+        )
+
+        await self.audit_log_repo.save(log)
+
+        return request

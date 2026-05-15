@@ -7,7 +7,6 @@ import {
   Pencil,
 } from "lucide-react";
 
-import UserLayout from "../../layouts/UserLayout";
 import PageHeader from "../../components/PageHeader";
 import Toast from "../../components/Toast";
 
@@ -19,10 +18,7 @@ import { apiFetch } from "../../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-export default function ProfilePage({
-  user,
-  handleLogout,
-}) {
+export default function ProfilePage({ user, handleLogout }) {
   const [profile, setProfile] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -189,10 +185,7 @@ export default function ProfilePage({
 
   if (loading) {
     return (
-      <UserLayout
-        user={user}
-        handleLogout={handleLogout}
-      >
+          <>
         <div className="flex items-center justify-center h-[60vh] gap-3">
           <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
 
@@ -200,15 +193,12 @@ export default function ProfilePage({
             Loading profile...
           </p>
         </div>
-      </UserLayout>
+      </>
     );
   }
 
   return (
-    <UserLayout
-      user={user}
-      handleLogout={handleLogout}
-    >
+        <>
       <div className="max-w-3xl mx-auto px-6 lg:px-8 py-10 space-y-6">
         <PageHeader title="Profil Saya" />
 
@@ -318,7 +308,7 @@ export default function ProfilePage({
         onClose={() => setToast(null)}
       />
 
-    </UserLayout>
+    </>
   );
 }
 

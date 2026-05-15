@@ -111,7 +111,6 @@ async def get_lost_report(
 ):
     try:
         report = await use_case.execute(report_id)
-        # return LostReportResponse.model_validate(report)
         response = LostReportResponse.model_validate(report)
         response.is_owner = ( current_user is not None and report.reporter.id == current_user.id )
         return response

@@ -28,11 +28,22 @@ import AdminHandoverPage from "./pages/admin/HandOverReportPage";
 import AdminManageStorageLocationsPage from "./pages/admin/ManageStorageLocationPage";
 import AdminViewAuditLogsPage from "./pages/admin/ViewAuditLogsPage";
 import AdminProtectedRoute from "./components/admin/ProtectedRoute";
+import { apiFetch } from "./utils/api";
+
+import UserLayout from "./layouts/UserLayout";
+
 
 function AppContent() {
   const [user, setUser] = useState(null);
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [contactRequestNotificationCount, setContactRequestNotificationCount] =
+    useState({
+      incoming_pending: 0,
+      outgoing_approved: 0,
+      outgoing_rejected: 0,
+    });
 
   const tryRefreshToken = async () => {
     const refreshToken =
@@ -142,6 +153,42 @@ function AppContent() {
     }
   };
 
+  const fetchContactRequestNotificationCount = async () => {
+    try {
+      const response = await apiFetch(
+        `${API_URL}/api/v1/contact-requests/notification-count`,
+        {
+          auth: "required",
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setContactRequestNotificationCount({
+          incoming_pending: data.incoming_pending || 0,
+          outgoing_approved: data.outgoing_approved || 0,
+          outgoing_rejected: data.outgoing_rejected || 0,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchContactRequestNotificationCount();
+
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+
+      fetchContactRequestNotificationCount();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -177,19 +224,41 @@ function AppContent() {
 
       <Route
         path="/home"
-        element={<HomePage user={user} handleLogout={handleLogout} />}
+        element={
+          <UserLayout
+            user={user}
+            handleLogout={handleLogout}
+            contactRequestNotificationCount={contactRequestNotificationCount}
+          >
+            <HomePage user={user} handleLogout={handleLogout} />
+          </UserLayout>
+        }
       />
 
       <Route
         path="/report/:id"
-        element={<ReportDetailPage user={user} handleLogout={handleLogout} />}
+        element={
+          <UserLayout
+            user={user}
+            handleLogout={handleLogout}
+            contactRequestNotificationCount={contactRequestNotificationCount}
+          >
+            <ReportDetailPage user={user} handleLogout={handleLogout} />
+          </UserLayout>
+        }
       />
 
       <Route
         path="/lapor-hilang"
         element={
           <ProtectedRoute user={user}>
-            <CreateReportPage user={user} handleLogout={handleLogout} />
+            <UserLayout
+              user={user}
+              handleLogout={handleLogout}
+              contactRequestNotificationCount={contactRequestNotificationCount}
+            >
+              <CreateReportPage user={user} handleLogout={handleLogout} />
+            </UserLayout>
           </ProtectedRoute>
         }
       />
@@ -198,7 +267,13 @@ function AppContent() {
         path="/lapor-temuan"
         element={
           <ProtectedRoute user={user}>
-            <CreateReportPage user={user} handleLogout={handleLogout} />
+            <UserLayout
+              user={user}
+              handleLogout={handleLogout}
+              contactRequestNotificationCount={contactRequestNotificationCount}
+            >
+              <CreateReportPage user={user} handleLogout={handleLogout} />
+            </UserLayout>
           </ProtectedRoute>
         }
       />
@@ -207,7 +282,13 @@ function AppContent() {
         path="/update-report/:id"
         element={
           <ProtectedRoute user={user}>
-            <UpdateReportPage user={user} handleLogout={handleLogout} />
+            <UserLayout
+              user={user}
+              handleLogout={handleLogout}
+              contactRequestNotificationCount={contactRequestNotificationCount}
+            >
+              <UpdateReportPage user={user} handleLogout={handleLogout} />
+            </UserLayout>
           </ProtectedRoute>
         }
       />
@@ -216,7 +297,13 @@ function AppContent() {
         path="/my-reports"
         element={
           <ProtectedRoute user={user}>
-            <MyReportsPage user={user} handleLogout={handleLogout} />
+            <UserLayout
+              user={user}
+              handleLogout={handleLogout}
+              contactRequestNotificationCount={contactRequestNotificationCount}
+            >
+              <MyReportsPage user={user} handleLogout={handleLogout} />
+            </UserLayout>
           </ProtectedRoute>
         }
       />
@@ -225,7 +312,13 @@ function AppContent() {
         path="/my-requests"
         element={
           <ProtectedRoute user={user}>
-            <MyContactRequestsPage user={user} handleLogout={handleLogout} />
+            <UserLayout
+              user={user}
+              handleLogout={handleLogout}
+              contactRequestNotificationCount={contactRequestNotificationCount}
+            >
+              <MyContactRequestsPage user={user} handleLogout={handleLogout} contactRequestNotificationCount={contactRequestNotificationCount} refreshContactRequestNotificationCount={fetchContactRequestNotificationCount} />
+            </UserLayout>
           </ProtectedRoute>
         }
       />
@@ -234,7 +327,13 @@ function AppContent() {
         path="/my-profile"
         element={
           <ProtectedRoute user={user}>
-            <ProfilePage user={user} handleLogout={handleLogout} />
+            <UserLayout
+              user={user}
+              handleLogout={handleLogout}
+              contactRequestNotificationCount={contactRequestNotificationCount}
+            >
+              <ProfilePage user={user} handleLogout={handleLogout} />
+            </UserLayout>
           </ProtectedRoute>
         }
       />

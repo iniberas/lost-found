@@ -154,7 +154,7 @@ export default function AuthPage({ onLoginSuccess }) {
               }}
               className="font-semibold text-ipb-blue hover:underline focus:outline-none"
             >
-              {isLogin ? 'Register/Sign up' : 'Log In'}
+              {isLogin ? 'Sign up' : 'Sign in'}
             </button>
           </p>
         </div>

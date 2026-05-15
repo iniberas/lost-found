@@ -26,6 +26,8 @@ from app.domain.use_cases.contact_request import (
     RejectContactRequestUseCase,
     SearchContactRequestsUseCase,
     GetContactAccessUseCase,
+    GetContactRequestNotificationCountUseCase,
+    MarkContactRequestResponseSeenUseCase,
 )
 from app.domain.use_cases.proof import CreateProofUseCase, GetProofByIdUseCase
 from app.domain.use_cases.report import (
@@ -91,7 +93,6 @@ from app.schemas.report import (
     UpdateLostReportRequest,
 )
 from app.schemas.user import (
-    ChangePasswordRequest,
     LoginUserRequest,
     RegisterUserRequest,
     UpdateUserRequest,
@@ -586,6 +587,18 @@ def get_contact_access_use_case(
     repo: ContactRequestRepository = Depends(get_contact_request_repo),
 ) -> GetContactAccessUseCase:
     return GetContactAccessUseCase(repo)
+
+def get_contact_request_notification_count_use_case(
+    repo: ContactRequestRepository = Depends(get_contact_request_repo),
+) -> GetContactRequestNotificationCountUseCase:
+    return GetContactRequestNotificationCountUseCase(repo)
+
+
+def get_mark_contact_request_response_seen_use_case(
+    repo: ContactRequestRepository = Depends(get_contact_request_repo),
+    audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
+) -> MarkContactRequestResponseSeenUseCase:
+    return MarkContactRequestResponseSeenUseCase(repo, audit_log_repo)
 
 
 def get_audit_log_by_id_use_case(
