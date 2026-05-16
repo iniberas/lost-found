@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import UserLayout from "../../layouts/UserLayout";
 import UpdateReportForm from "./UpdateReportForm";
 import { useLocation } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
@@ -15,10 +14,7 @@ export default function UpdateReportPage({ user, handleLogout }) {
 	};
 
 	return (
-		<UserLayout
-			user={user}
-			handleLogout={handleLogout}
-		>
+		<>
 			<Toast
 				show={Boolean(toast)}
 				message={toast?.message}
@@ -49,6 +45,6 @@ export default function UpdateReportPage({ user, handleLogout }) {
 					</div>
 				</div>
 			</div>
-		</UserLayout>
+		</>
 	);
 }

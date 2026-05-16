@@ -8,16 +8,16 @@ import {
 	Mail,
 	Phone,
 	MessageCircleMore,
+	Archive
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch, buildParams } from "../../utils/api";
 
-import UserLayout from "../../layouts/UserLayout";
 import PageHeader from "../../components/PageHeader";
 
 import Table from "../../components/Table";
 import SearchFilter from "../../components/SearchFilter";
-import TabSelector from "../../components/TabSelector";
+import TabSelectorWithNumber from "./TabSelectorWithNumber";
 import StatusBadge from "../../components/StatusBadge";
 import Toast from "../../components/Toast";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -83,7 +83,7 @@ const HEADERS = [
 	},
 ];
 
-export default function MyContactRequestsPage({ user, handleLogout }) {
+export default function MyContactRequestsPage({ user, handleLogout, contactRequestNotificationCount, refreshContactRequestNotificationCount }) {
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const urlSearch = searchParams.get("search") || "";
@@ -212,6 +212,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 		if (tab === activeTab) return;
 
 		setIsSwitchingTab(true);
+		table.handleResetFilter();
 
 		setActiveTab(tab);
 		table.setItems([]);
@@ -269,12 +270,17 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 		message
 	) => {
 		try {
+			const trimmedMessage = message?.trim();
+			const body =
+				type === "approve" && !trimmedMessage
+					? {}
+					: { message: trimmedMessage };
+
 			const response = await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/${type}`, {
 				method: "POST",
 				auth: "required",
-				body: JSON.stringify({ message: message }),
+				body: JSON.stringify(body),
 			})
-
 
 			const data = await response.json();
 
@@ -305,6 +311,9 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 				message: "",
 				submitting: false,
 			});
+
+			refreshContactRequestNotificationCount();
+
 		} catch (err) {
 			console.error(err);
 
@@ -373,12 +382,37 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 		}
 	};
 
+	const markResponseSeen = async (requestId) => {
+		try {
+			await apiFetch(`${API_URL}/api/v1/contact-requests/${requestId}/mark-response-seen`, {
+				method: "POST",
+				auth: "required",
+			});
+
+			refreshContactRequestNotificationCount();
+
+			table.setItems((prev) =>
+				prev.map((item) =>
+					item.id === requestId
+						? {
+							...item,
+							is_response_seen: true,
+						}
+						: item
+				)
+			);
+		} catch (err) {
+			console.error(err);
+		}
+	};
+
 	const renderStatus = (status) => {
 		const variants = {
-			pending: "warning",
-			approved: "success",
-			rejected: "danger",
-			canceled: "secondary",
+			pending: "pending",
+			approved: "approved",
+			rejected: "rejected",
+			canceled: "canceled",
+			closed: "closed",
 		};
 
 		const labels = {
@@ -386,18 +420,54 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 			approved: "Approved",
 			rejected: "Rejected",
 			canceled: "Canceled",
+			closed: "Closed",
 		};
 
 		return (
 			<StatusBadge
-				variant={variants[status] ?? "secondary"}
+				variant={variants[status] ?? "closed"}
 				label={labels[status] ?? status}
 			/>
 		);
 	};
 
+	const tabs = [
+		{
+			id: "incoming",
+			label: "Incoming",
+			badges: [
+				{
+					count:
+						contactRequestNotificationCount.incoming_pending,
+					color: "bg-yellow-400",
+				},
+			],
+		},
+		{
+			id: "outgoing",
+			label: "Outgoing",
+			badges: [
+				{
+					count:
+						contactRequestNotificationCount.outgoing_rejected,
+					color: "bg-red-400",
+				},
+				{
+					count:
+						contactRequestNotificationCount.outgoing_approved,
+					color: "bg-green-400",
+				},
+				{
+					count:
+						contactRequestNotificationCount.outgoing_closed,
+					color: "bg-gray-400",
+				},
+			],
+		},
+	];
+
 	return (
-		<UserLayout user={user} handleLogout={handleLogout}>
+		<>
 			<div className="max-w-7xl mx-auto px-6 lg:px-8 py-10 space-y-6">
 				{/* HEADER */}
 				<div className="space-y-6">
@@ -475,8 +545,8 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 						</div>
 
 						<div className="flex justify-center">
-							<TabSelector
-								tabs={TABS}
+							<TabSelectorWithNumber
+								tabs={tabs}
 								activeTab={activeTab}
 								onTabChange={handleTabChange}
 							/>
@@ -511,29 +581,73 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 									{/* USER */}
 									<td className="px-6 py-4">
 										<div className="flex items-center gap-3 min-w-0">
+											{/* notification blob */}
+											{activeTab === "outgoing" && (
+												<div className="w-3 flex justify-center shrink-0">
+													{!row.is_response_seen &&
+														row.status === "approved" && (
+															<div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+														)}
+													{!row.is_response_seen &&
+														row.status === "rejected" && (
+															<div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+														)}
+													{!row.is_response_seen &&
+														row.status === "closed" && (
+															<div className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+														)}
+												</div>
+											)}
+											{activeTab === "incoming" && (
+												<div className="w-3 flex justify-center shrink-0">
+													{row.status === "pending" && (
+														<div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+													)}
+												</div>
+											)}
 											<div
 												className={`w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0 ${isProfileClickable ? "cursor-pointer hover:bg-blue-100 transition-colors" : ""}`}
 												onClick={() => {
-													if (isProfileClickable) handleOpenContact(row.id);
+													if (isProfileClickable) {
+														handleOpenContact(row.id);
+														if (!row.is_response_seen) {
+															markResponseSeen(row.id);
+														}
+													}
 												}}
 											>
 												<User size={18} className="text-blue-500" />
 											</div>
 
-											<div className="min-w-0">
+
+											<div className="relative min-w-0">
 												<p
 													className={`font-semibold truncate max-w-[180px] ${isProfileClickable
 														? "text-blue-600 cursor-pointer hover:underline"
 														: "text-gray-800"
 														}`}
 													onClick={() => {
-														if (isProfileClickable) handleOpenContact(row.id);
+														if (isProfileClickable) {
+															handleOpenContact(row.id);
+															if (!row.is_response_seen) {
+																markResponseSeen(row.id);
+															}
+														}
 													}}
 												>
 													{otherUser?.name || "Unknown User"}
 												</p>
+												{activeTab === "outgoing" &&
+													!row.is_response_seen &&
+													row.status === "approved" && (
+														<div className="absolute top-0 -right-3 w-2 h-2 rounded-full bg-green-400 ring-2 ring-white" />
+													)}
 												<p className="text-xs text-gray-400">
-													{isProfileClickable ? "Klik untuk melihat kontak" : "Kontak akan terlihat setelah pemintaan kontak diapprove"}
+													{row.status === "approved"
+														? "Klik untuk melihat kontak"
+														: row.status === "rejected"
+															? "Permintaan kontak ditolak"
+															: "Kontak akan terlihat setelah permintaan kontak diapprove"}
 												</p>
 											</div>
 										</div>
@@ -543,11 +657,15 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 									<td className="px-6 py-4">
 										<div
 											className="max-w-[240px] cursor-pointer group"
-											onClick={() =>
+											onClick={() => {
+												if (!row.is_response_seen) {
+													markResponseSeen(row.id);
+												}
+
 												navigate(
 													`/report/${row.report_id}?type=${row.report_type}`
-												)
-											}
+												);
+											}}
 										>
 											<p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600 group-hover:underline underline-offset-2 transition-colors">
 												{row.report_title || "Untitled Report"}
@@ -566,14 +684,28 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 											onClick={() => {
 												if (row.message) {
 													setMessageModal({ open: true, data: row });
+
+													if (!row.is_response_seen) {
+														markResponseSeen(row.id);
+													}
 												}
 											}}
 										>
 											<div className="flex items-start gap-2">
-												<MessageSquare
-													size={14}
-													className={`mt-0.5 shrink-0 transition-colors ${row.message ? "text-blue-400 group-hover:text-blue-600" : "text-gray-400"}`}
-												/>
+												<div className="relative shrink-0">
+													<MessageSquare
+														size={14}
+														className={`mt-0.5 transition-colors ${row.message
+															? "text-blue-400 group-hover:text-blue-600"
+															: "text-gray-400"
+															}`}
+													/>
+
+													{activeTab === "incoming" &&
+														row.status === "pending" && (
+															<div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-yellow-400 ring-2 ring-white" />
+														)}
+												</div>
 
 												<p className={`text-sm line-clamp-3 break-words transition-colors ${row.message ? "text-gray-600 group-hover:text-blue-600 group-hover:underline underline-offset-2" : "text-gray-400"}`}>
 													{row.message || "—"}
@@ -593,10 +725,17 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 												<CheckCircle2 size={14} className="text-green-500" />
 											)}
 
-											{(row.status === "rejected" ||
-												row.status === "canceled") && (
-													<XCircle size={14} className="text-red-500" />
-												)}
+											{row.status === "rejected" && (
+												<XCircle size={14} className="text-red-500" />
+											)}
+
+											{row.status === "canceled" && (
+												<XCircle size={14} className="text-gray-500" />
+											)}
+
+											{row.status === "closed" && (
+												<Archive size={14} className="text-gray-500" />
+											)}
 
 											{renderStatus(row.status)}
 
@@ -604,19 +743,37 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 											{row.response_message && (
 												<button
 													type="button"
-													onClick={() =>
+													onClick={() => {
 														setResponseMessageModal({
 															open: true,
 															data: row,
 														})
-													}
-													className="ml-1 p-1 rounded-lg hover:bg-blue-100 transition group"
+
+														if (!row.is_response_seen) {
+															markResponseSeen(row.id)
+														}
+													}}
+													className="relative ml-1 p-1 rounded-lg hover:bg-blue-100 transition group"
 													title="View response message"
 												>
 													<MessageCircleMore
 														size={15}
 														className="text-blue-500 group-hover:text-blue-700"
 													/>
+													{activeTab === "outgoing" &&
+														!row.is_response_seen && (
+															<>
+																{row.status === "approved" && (
+																	<div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 ring-2 ring-white" />
+																)}
+																{row.status === "rejected" && (
+																	<div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-400 ring-2 ring-white" />
+																)}
+																{row.status === "closed" && (
+																	<div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-gray-400 ring-2 ring-white" />
+																)}
+															</>
+														)}
 												</button>
 											)}
 										</div>
@@ -782,7 +939,7 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 				{messageModal.data && (
 					<div className="space-y-4">
 						{/* REPORT CONTEXT */}
-						<div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+						<div className="p-3 bg-gray-50 rounded-xl border border-gray-100 break-words">
 							<p className="text-xs text-gray-400 mb-0.5">Report</p>
 							<p className="text-sm font-semibold text-gray-800">
 								{messageModal.data.report_title || "Untitled Report"}
@@ -902,6 +1059,6 @@ export default function MyContactRequestsPage({ user, handleLogout }) {
 				type={toast?.type}
 				onClose={() => setToast(null)}
 			/>
-		</UserLayout>
+		</>
 	);
 }

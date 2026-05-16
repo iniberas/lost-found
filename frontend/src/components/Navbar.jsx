@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import LogoWaldo from '../assets/logo-waldo.png';
 import { USER_COLORS } from '../constants/colors';
+const API_URL = import.meta.env.VITE_API_URL;
 
-const Navbar = ({ user, handleLogout }) => {
+
+const Navbar = ({ user, handleLogout, contactRequestNotificationCount }) => {
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -42,6 +44,7 @@ const Navbar = ({ user, handleLogout }) => {
 
       {/* USER SECTION */}
       <div className="flex items-center gap-6">
+
         {user ? (
           <div className="relative" ref={dropdownRef}>
             {/* Tombol Profil */}
@@ -59,6 +62,24 @@ const Navbar = ({ user, handleLogout }) => {
                 size={14}
                 className={`text-white/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
               />
+              {/* Blob notif request */}
+              <div className="absolute top-1 right-1 flex items-center">
+                {contactRequestNotificationCount.incoming_pending > 0 && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 ring-2 ring-[#314CBB] z-30" />
+                )}
+
+                {contactRequestNotificationCount.outgoing_rejected > 0 && (
+                  <span className="-ml-1 w-2.5 h-2.5 rounded-full bg-red-400 ring-2 ring-[#314CBB] z-20" />
+                )}
+
+                {contactRequestNotificationCount.outgoing_approved > 0 && (
+                  <span className="-ml-1 w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-[#314CBB] z-10" />
+                )}
+
+                {contactRequestNotificationCount.outgoing_closed > 0 && (
+                  <span className="-ml-1 w-2.5 h-2.5 rounded-full bg-gray-400 ring-2 ring-[#314CBB] z-0" />
+                )}
+              </div>
             </button>
 
             {/* Dropdown Menu */}
@@ -84,10 +105,42 @@ const Navbar = ({ user, handleLogout }) => {
                       setIsDropdownOpen(false);
                       navigate('/my-requests?tab=incoming');
                     }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors font-medium"
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center justify-between transition-colors font-medium"
                   >
-                    <Inbox size={16} className="text-[#314CBB]" />
-                    Permintaan Kontak
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Inbox
+                        size={16}
+                        className="text-[#314CBB] shrink-0"
+                      />
+
+                      <span>
+                        Permintaan Kontak
+                      </span>
+
+                      {contactRequestNotificationCount.incoming_pending > 0 && (
+                        <span className="px-1.5 py-1 rounded-full bg-yellow-400 text-white text-[10px] font-bold leading-none shrink-0">
+                          {contactRequestNotificationCount.incoming_pending}
+                        </span>
+                      )}
+
+                      {contactRequestNotificationCount.outgoing_rejected > 0 && (
+                        <span className="px-1.5 py-1 rounded-full bg-red-400 text-white text-[10px] font-bold leading-none shrink-0">
+                          {contactRequestNotificationCount.outgoing_rejected}
+                        </span>
+                      )}
+
+                      {contactRequestNotificationCount.outgoing_approved > 0 && (
+                        <span className="px-1.5 py-1 rounded-full bg-green-400 text-white text-[10px] font-bold leading-none shrink-0">
+                          {contactRequestNotificationCount.outgoing_approved}
+                        </span>
+                      )}
+
+                      {contactRequestNotificationCount.outgoing_closed > 0 && (
+                        <span className="px-1.5 py-1 rounded-full bg-gray-400 text-white text-[10px] font-bold leading-none shrink-0">
+                          {contactRequestNotificationCount.outgoing_closed}
+                        </span>
+                      )}
+                    </div>
                   </button>
 
                   {/* Profile */}
@@ -111,7 +164,7 @@ const Navbar = ({ user, handleLogout }) => {
                       setIsDropdownOpen(false);
                       handleLogout();
                     }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
+                    className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
                   >
                     <LogOut size={16} />
                     Logout
@@ -126,10 +179,11 @@ const Navbar = ({ user, handleLogout }) => {
             onClick={() => navigate('/auth')}
             className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-5 py-2 rounded-xl text-sm font-semibold transition-all"
           >
-            Login / Daftar
+            Sign in
           </button>
         )}
       </div>
+
     </nav>
   );
 };

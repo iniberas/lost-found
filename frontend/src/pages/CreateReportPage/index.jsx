@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
-import UserLayout from "../../layouts/UserLayout";
 import CreateReportForm from "./CreateReportForm";
 import PageHeader from "../../components/PageHeader";
 import Toast from "../../components/Toast";
@@ -15,10 +14,7 @@ export default function CreateReportPage({ user, handleLogout }) {
 	};
 
 	return (
-		<UserLayout
-			user={user}
-			handleLogout={handleLogout}
-		>
+		<>
 			<Toast
 				show={Boolean(toast)}
 				message={toast?.message}
@@ -50,6 +46,6 @@ export default function CreateReportPage({ user, handleLogout }) {
 					</div>
 				</div>
 			</div>
-		</UserLayout>
+		</>
 	);
 }

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from app.infrastructure.database.models.base import Base
-from sqlalchemy import DateTime, Enum, ForeignKey, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,7 @@ class RequestStatus(str, enum.Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     CANCELED = "canceled"
+    CLOSED = "closed"
 
 
 class ReportType(str, enum.Enum):
@@ -56,6 +57,14 @@ class ContactRequestModel(Base):
         nullable=False,
         default=RequestStatus.PENDING,
     )
+
+    is_response_seen: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     response_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 

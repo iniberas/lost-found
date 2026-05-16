@@ -13,6 +13,7 @@ class RequestStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     CANCELED = "canceled"
+    CLOSED = "closed"
 
 
 class ContactRequest:
@@ -33,6 +34,7 @@ class ContactRequest:
         message: Optional[str] = None,
         responded_at: Optional[datetime] = None,
         response_message: Optional[str] = None,
+        is_response_seen: bool = False,
     ):
         if message is not None:
             message = self._clean_text(message, "Message")
@@ -63,6 +65,7 @@ class ContactRequest:
         self._message = message
         self._responded_at = responded_at
         self._response_message = response_message
+        self._is_response_seen = is_response_seen
 
     def __eq__(self, other):
         if not isinstance(other, ContactRequest):
@@ -149,6 +152,15 @@ class ContactRequest:
         return self._status
 
     @property
+    def is_response_seen(self) -> bool:
+        return self._is_response_seen
+
+    @is_response_seen.setter
+    def is_response_seen(self, value: bool):
+        self._is_response_seen = value
+        self._touch()
+
+    @property
     def message(self) -> Optional[str]:
         return self._message
     
@@ -169,6 +181,7 @@ class ContactRequest:
             response_message = self._clean_text(response_message, "Response message")
             self._validate_message(response_message)
         self._response_message = response_message
+        self._is_response_seen = False
         self._touch()
 
     def reject(self, response_message: Optional[str] = None):
@@ -186,11 +199,28 @@ class ContactRequest:
         self._status = RequestStatus.REJECTED
         self._responded_at = datetime.now(timezone.utc)
         self._response_message = response_message
+        self._is_response_seen = False
         self._touch()
 
     def cancel(self):
         self._ensure_pending()
         self._status = RequestStatus.CANCELED
+        self._touch()
+
+    def close(self, response_message: Optional[str] = None):
+        self._ensure_pending()
+
+        if response_message is not None:
+            response_message = self._clean_text(
+                response_message,
+                "Response message"
+            )
+            self._validate_message(response_message)
+
+        self._status = RequestStatus.CLOSED
+        self._responded_at = datetime.now(timezone.utc)
+        self._response_message = response_message
+        self._is_response_seen = False
         self._touch()
 
     def update_message(self, new_message: str):

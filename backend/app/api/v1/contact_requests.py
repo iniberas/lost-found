@@ -9,6 +9,8 @@ from app.core.dependencies import (
     get_reject_contact_request_use_case,
     get_search_contact_requests_use_case,
     get_contact_access_use_case,
+    get_contact_request_notification_count_use_case,
+    get_mark_contact_request_response_seen_use_case,
 )
 from app.domain.entities.contact_request import RequestStatus
 from app.domain.entities.user import User
@@ -21,6 +23,8 @@ from app.domain.use_cases.contact_request import (
     RejectContactRequestUseCase,
     SearchContactRequestsUseCase,
     GetContactAccessUseCase,
+    GetContactRequestNotificationCountUseCase,
+    MarkContactRequestResponseSeenUseCase,
 )
 from app.schemas.contact_request import (
     ContactRequestResponse,
@@ -28,6 +32,7 @@ from app.schemas.contact_request import (
     ContactAccessResponse,
     ApproveContactRequestPayload,
     RejectContactRequestPayload,
+    ContactRequestNotificationCountResponse,
 )
 from app.schemas.pagination import Paginated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -195,6 +200,42 @@ async def get_contact_access(
             granted_at=request.responded_at,
             other_user=other_user,
         )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+
+@router.get("/notification-count", response_model=ContactRequestNotificationCountResponse)
+async def get_notification_count(
+    current_user: User = Depends(get_current_user),
+    use_case: GetContactRequestNotificationCountUseCase = Depends(get_contact_request_notification_count_use_case),
+):
+    return await use_case.execute(current_user.id)
+
+
+@router.post("/{request_id}/mark-response-seen", response_model=ContactRequestResponse)
+async def mark_response_seen(
+    request_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    use_case: MarkContactRequestResponseSeenUseCase = Depends(
+        get_mark_contact_request_response_seen_use_case
+    ),
+):
+    try:
+        request = await use_case.execute(
+            actor=current_user,
+            request_id=request_id,
+        )
+
+        return ContactRequestResponse.model_validate(request)
 
     except ValueError as e:
         raise HTTPException(

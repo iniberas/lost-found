@@ -25,6 +25,7 @@ class ContactRequestResponse(BaseModel):
     status: RequestStatus
     message: Optional[str] = None
     response_message: Optional[str] = None
+    is_response_seen: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,3 +55,9 @@ class ApproveContactRequestPayload(BaseModel):
 
 class RejectContactRequestPayload(BaseModel):
     message: str
+
+class ContactRequestNotificationCountResponse(BaseModel):
+    incoming_pending: int
+    outgoing_approved: int
+    outgoing_rejected: int
+    outgoing_closed: int

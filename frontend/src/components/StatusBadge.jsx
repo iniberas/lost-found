@@ -34,6 +34,11 @@ const STYLES = {
   // report type
   lost: "bg-red-50 text-red-600 border-red-100",
   found: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  // contact request status
+  pending: "bg-amber-50 text-amber-600 border-amber-100",
+  approved: "bg-green-50 text-green-600 border-green-100",
+  rejected: "bg-red-50 text-red-600 border-red-100",
+  canceled: "bg-gray-100 text-gray-500 border-gray-200",
 };
 
 const LABELS = {
@@ -51,6 +56,10 @@ const LABELS = {
   returned_to_owner: "Returned",
   lost: "Lost",
   found: "Found",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  canceled: "Canceled",
 };
 
 export default function StatusBadge({ variant, label, className = "" }) {

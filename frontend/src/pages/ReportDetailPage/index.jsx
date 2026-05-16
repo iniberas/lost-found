@@ -45,7 +45,6 @@ import ContactRequestModal from "./ContactRequestModal";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import UserLayout from "../../layouts/UserLayout";
 import { apiFetch } from "../../utils/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -72,7 +71,7 @@ function InfoRow({ icon: Icon, text }) {
 	);
 }
 
-export default function ReportDetailPage({ user, handleLogout }) {
+export default function ReportDetailPage({ user, handleLogout, refreshContactRequestNotificationCount }) {
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -439,6 +438,8 @@ export default function ReportDetailPage({ user, handleLogout }) {
 			setProofPhotos([]);
 			setProofPhotoPreviews([]);
 			setShowResolveModal(false);
+			refreshContactRequestNotificationCount();
+			
 		} catch (err) {
 			showToast(err.message, "error");
 		} finally {
@@ -514,35 +515,26 @@ export default function ReportDetailPage({ user, handleLogout }) {
 
 	if (loading) {
 		return (
-			<UserLayout
-				user={user}
-				handleLogout={handleLogout}
-			>
+			<>
 				<div className="min-h-screen flex items-center justify-center">
 					<div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
 				</div>
-			</UserLayout>
+			</>
 		);
 	}
 
 	if (!report) {
 		return (
-			<UserLayout
-				user={user}
-				handleLogout={handleLogout}
-			>
+			<>
 				<div className="min-h-screen flex items-center justify-center text-gray-500">
 					Laporan tidak ditemukan.
 				</div>
-			</UserLayout>
+			</>
 		);
 	}
 
 	return (
-		<UserLayout
-			user={user}
-			handleLogout={handleLogout}
-		>
+		<>
 			<div className="max-w-7xl mx-auto px-6 lg:px-8 py-10 space-y-6">
 				{/* HEADER */}
 				<div className="space-y-6">
@@ -771,11 +763,11 @@ export default function ReportDetailPage({ user, handleLogout }) {
 											</div>
 
 											<div className="min-w-0 flex-1">
-												<h4 className="font-bold text-blue-900">
+												<h4 className="font-bold text-blue-900 break-words">
 													{report.storage_location.name}
 												</h4>
 
-												<p className="text-sm text-blue-700 mt-1 whitespace-pre-wrap">
+												<p className="text-sm text-blue-700 mt-1 whitespace-pre-wrap break-words">
 													{report.storage_location.description || "-"}
 												</p>
 											</div>
@@ -1213,6 +1205,6 @@ export default function ReportDetailPage({ user, handleLogout }) {
 				type={toast?.type}
 				onClose={() => setToast(null)}
 			/>
-		</UserLayout>
+		</>
 	);
 }
