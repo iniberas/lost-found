@@ -52,10 +52,6 @@ function AppContent() {
     });
 
   const tryRefreshToken = async () => {
-    const refreshToken =
-      localStorage.getItem("refresh_token");
-
-  const tryRefreshToken = async () => {
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) return null;
 

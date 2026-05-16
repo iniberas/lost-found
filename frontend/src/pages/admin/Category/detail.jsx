@@ -225,7 +225,7 @@ export default function AdminCategoryDetailPage({ user }) {
                     ) : (
                       <Trash2 size={16} />
                     )}
-                    Deactivate Category
+                    Delete
                   </button>
                 ) : (
                   ""

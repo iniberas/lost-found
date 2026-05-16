@@ -289,7 +289,7 @@ export default function AdminUserDetailPage({ user }) {
                   className="w-full py-2.5 rounded-xl text-sm font-bold text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                 >
                   {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  {isDeleting ? "Deleting..." : "Delete User"}
+                  {isDeleting ? "Deleting..." : "Delete"}
                 </button>
               ) : (
                 <p className="text-xs text-gray-400 italic text-center py-2">
