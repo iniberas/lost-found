@@ -9,37 +9,35 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   Edit,
-  Trash2,
   Shield,
   X,
   UploadCloud,
   FileText,
   Database,
-  Crosshair,
-  Camera,
+  RotateCcw,
 } from "lucide-react";
 import AdminDashboardLayout from "../../../layouts/AdminDashboard";
 import PageHeader from "../../../components/admin/PageHeader";
 import StatusBadge from "../../../components/admin/StatusBadge";
-import { LocationPicker } from "../../../components/LocationPicker";
-import { IPB_COLORS, ADMIN_COLORS } from "../../../constants/colors";
+import LocationPicker from "../../../components/admin/LocationPicker";
+import { IPB_COLORS } from "../../../constants/colors";
 import { adminFetch } from "../../../utils/adminApi";
 
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-
 const API_URL = import.meta.env.VITE_API_URL;
-const DEFAULT_CENTER = [-6.5607, 106.7265];
+const DEFAULT_CENTER = { lat: -6.5607, lng: 106.7265 };
 
-const markerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+const getReportStatusColor = (status) => {
+  switch (status?.toLowerCase()) {
+    case "open":
+      return "green";
+    case "resolved":
+      return "blue";
+    case "closed":
+      return "gray";
+    default:
+      return "gray";
+  }
+};
 
 function InfoRow({ icon: Icon, text }) {
   return (
@@ -78,7 +76,7 @@ function ResolveModal({ isOpen, onClose, onDummySubmit, isFound }) {
                 Proof Photo <span className="text-red-500">*</span>
               </label>
               <label className="cursor-pointer bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-6 flex flex-col items-center justify-center hover:bg-blue-50 transition-colors">
-                <Camera className="text-gray-400 mb-2" size={24} />
+                <UploadCloud className="text-gray-400 mb-2" size={24} />
                 <span className="text-xs font-semibold text-gray-500">
                   Click to upload proof
                 </span>
@@ -139,14 +137,17 @@ export default function AdminReportDetailPage({ user }) {
     created_at: "",
   });
   const [reporterInfo, setReporterInfo] = useState(null);
+  const [selectedPosition, setSelectedPosition] = useState(null);
 
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [photosToRemove, setPhotosToRemove] = useState([]);
   const [photosToAdd, setPhotosToAdd] = useState([]);
   const [newPhotoPreviews, setNewPhotoPreviews] = useState([]);
-  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
-  const [selectedPosition, setSelectedPosition] = useState(null);
-  const [locationStatus, setLocationStatus] = useState("");
+
+  const [initialData, setInitialData] = useState(null);
+  const [initialPosition, setInitialPosition] = useState(null);
+  const [initialPhotos, setInitialPhotos] = useState([]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
 
@@ -186,7 +187,7 @@ export default function AdminReportDetailPage({ user }) {
         ? new Date(reportData.incident_date).toISOString().slice(0, 16)
         : "";
 
-      setFormData({
+      const fetchedFormData = {
         title: reportData.title || "",
         description: reportData.description || "",
         location_name: reportData.location_name || "",
@@ -198,21 +199,28 @@ export default function AdminReportDetailPage({ user }) {
         finder_name: reportData.finder_name || "",
         finder_contact: reportData.finder_contact || "",
         created_at: reportData.created_at,
-      });
+      };
 
-      setExistingPhotos(reportData.photos || []);
+      setFormData(fetchedFormData);
+      setInitialData(fetchedFormData);
+
+      const fetchedPhotos = reportData.photos || [];
+      setExistingPhotos(fetchedPhotos);
+      setInitialPhotos(fetchedPhotos);
+
       setPhotosToRemove([]);
       setPhotosToAdd([]);
       setNewPhotoPreviews([]);
 
+      let fetchedPos = null;
       if (reportData.location_point) {
-        const pos = {
+        fetchedPos = {
           lat: reportData.location_point.latitude,
           lng: reportData.location_point.longitude,
         };
-        setSelectedPosition(pos);
-        setMapCenter(pos);
       }
+      setSelectedPosition(fetchedPos);
+      setInitialPosition(fetchedPos);
 
       setReporterInfo(reportData.reporter);
     } catch (err) {
@@ -222,7 +230,6 @@ export default function AdminReportDetailPage({ user }) {
     }
   };
 
-  
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -235,33 +242,6 @@ export default function AdminReportDetailPage({ user }) {
         ? prev.category_ids.filter((id) => id !== catId)
         : [...prev.category_ids, catId],
     }));
-  };
-
-  const handleAskLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Browser Anda tidak mendukung fitur Geolocation.");
-      return;
-    }
-    setLocationStatus("Meminta izin...");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const currentPos = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setMapCenter(currentPos);
-        setSelectedPosition(currentPos);
-        setLocationStatus("");
-      },
-      (error) => {
-        let errorMsg = "Gagal mendapatkan lokasi.";
-        if (error.code === error.PERMISSION_DENIED)
-          errorMsg = "Izin lokasi ditolak oleh browser.";
-        alert(errorMsg);
-        setLocationStatus("");
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
   };
 
   const handleRemoveExistingPhoto = (photoUrl) => {
@@ -286,7 +266,16 @@ export default function AdminReportDetailPage({ user }) {
     setNewPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  
+  const handleCancel = () => {
+    if (!initialData) return;
+    setFormData(initialData);
+    setSelectedPosition(initialPosition);
+    setExistingPhotos(initialPhotos);
+    setPhotosToRemove([]);
+    setPhotosToAdd([]);
+    setNewPhotoPreviews([]);
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -355,7 +344,38 @@ export default function AdminReportDetailPage({ user }) {
     setIsResolveModalOpen(false);
   };
 
-  
+  const checkHasChanges = () => {
+    if (!initialData) return false;
+
+    const isBasicFormChanged =
+      formData.title !== initialData.title ||
+      formData.description !== initialData.description ||
+      formData.location_name !== initialData.location_name ||
+      formData.incident_date !== initialData.incident_date ||
+      formData.storage_location_id !== initialData.storage_location_id ||
+      formData.finder_name !== initialData.finder_name ||
+      formData.finder_contact !== initialData.finder_contact;
+
+    const currentCats = [...formData.category_ids].sort().join(",");
+    const initialCats = [...initialData.category_ids].sort().join(",");
+    const isCategoriesChanged = currentCats !== initialCats;
+
+    const isPosChanged =
+      selectedPosition?.lat !== initialPosition?.lat ||
+      selectedPosition?.lng !== initialPosition?.lng;
+
+    const isPhotosChanged = photosToAdd.length > 0 || photosToRemove.length > 0;
+
+    return (
+      isBasicFormChanged ||
+      isCategoriesChanged ||
+      isPosChanged ||
+      isPhotosChanged
+    );
+  };
+
+  const hasChanges = checkHasChanges();
+
   if (isLoading) {
     return (
       <AdminDashboardLayout user={user}>
@@ -387,23 +407,23 @@ export default function AdminReportDetailPage({ user }) {
   return (
     <AdminDashboardLayout user={user}>
       <div className="px-10 py-8 space-y-6">
-        
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <PageHeader title="Report Details" />
           <div className="flex items-center gap-3">
             <span
-              className={`px-4 py-1.5 rounded-lg text-sm font-black uppercase tracking-wider shadow-sm ${isFound ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-red-50 text-red-600 border border-red-200"}`}
+              className={`px-4 py-1 rounded-lg text-sm font-black uppercase tracking-wider shadow-sm ${isFound ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-red-50 text-red-600 border border-red-200"}`}
             >
               {isFound ? "FOUND ITEM" : "LOST ITEM"}
             </span>
-            <StatusBadge variant={formData.status?.toLowerCase()} />
+            <StatusBadge
+              label={formData.status?.toLowerCase()}
+              variant={getReportStatusColor(formData.status?.toLowerCase())}
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           <div className="lg:col-span-2 space-y-6">
-            
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
               <div>
                 <label className="block text-[13px] font-bold text-gray-800 mb-2">
@@ -500,7 +520,6 @@ export default function AdminReportDetailPage({ user }) {
               </div>
             </div>
 
-            
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin size={18} style={{ color: IPB_COLORS.blue.primary }} />
@@ -516,56 +535,13 @@ export default function AdminReportDetailPage({ user }) {
                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-all shadow-sm"
               />
 
-              
-              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden mt-1 shadow-sm">
-                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                  <span className="text-[11px] text-gray-500 font-medium">
-                    Klik peta untuk pin lokasi (Opsional)
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {selectedPosition && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPosition(null)}
-                        className="text-[11px] font-bold text-red-600 bg-white hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-red-200 shadow-sm"
-                      >
-                        <X size={12} /> Reset Peta
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleAskLocation}
-                      className="text-[11px] font-bold text-blue-600 bg-white hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-blue-200 shadow-sm"
-                    >
-                      <Crosshair size={12} /> Lokasi Saat Ini
-                    </button>
-                  </div>
-                </div>
-
-                {locationStatus && (
-                  <div className="px-4 py-2 bg-amber-50 text-amber-700 text-[11px] font-medium border-b border-amber-100 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                    {locationStatus}
-                  </div>
-                )}
-
-                
-                <div className="h-[400px] w-full bg-gray-100 z-0 relative">
-                  <MapContainer
-                    center={mapCenter}
-                    zoom={16}
-                    scrollWheelZoom={true}
-                    style={{ height: "100%", width: "100%", zIndex: 0 }}
-                  >
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <LocationPicker
-                      position={selectedPosition}
-                      setPosition={setSelectedPosition}
-                      center={mapCenter}
-                    />
-                  </MapContainer>
-                </div>
-              </div>
+              <LocationPicker
+                value={selectedPosition}
+                onChange={setSelectedPosition}
+                required={false}
+                label="Klik peta untuk pin lokasi"
+                defaultCenter={DEFAULT_CENTER}
+              />
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
@@ -641,9 +617,7 @@ export default function AdminReportDetailPage({ user }) {
             </div>
           </div>
 
-          {/* Right Sidebar */}
           <div className="space-y-6">
-            {/* Reporter Card */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
               <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
                 Reporter Details
@@ -676,7 +650,6 @@ export default function AdminReportDetailPage({ user }) {
               </div>
             </div>
 
-            {/* Finder Info Form (If Found Report) */}
             {isFound && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
                 <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
@@ -711,30 +684,41 @@ export default function AdminReportDetailPage({ user }) {
               </div>
             )}
 
-            {/* Action Panel */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3 sticky top-6">
               <h3 className="text-base font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3">
                 Admin Actions
               </h3>
 
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ backgroundColor: IPB_COLORS.blue.primary }}
-              >
-                {isSaving ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                ) : (
-                  <Edit size={16} />
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving || !hasChanges}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: IPB_COLORS.blue.primary }}
+                >
+                  {isSaving ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    <Edit size={16} />
+                  )}
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </button>
+
+                {hasChanges && (
+                  <button
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <RotateCcw size={16} /> Cancel Changes
+                  </button>
                 )}
-                {isSaving ? "Saving..." : "Save Changes"}
-              </button>
+              </div>
 
               {isOpen && (
                 <button
                   onClick={() => setIsResolveModalOpen(true)}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 transition-colors flex items-center justify-center gap-2 shadow-sm mt-3"
                 >
                   <CheckCircle2 size={16} /> Mark as Resolved
                 </button>

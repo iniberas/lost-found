@@ -2,6 +2,7 @@ import uuid
 from typing import List, Optional
 
 from app.core.dependencies import (
+    get_category_by_id_use_case,
     get_create_category_form,
     get_create_category_use_case,
     get_current_admin,
@@ -15,6 +16,7 @@ from app.domain.exceptions import ValidationError
 from app.domain.use_cases.category import (
     CreateCategoryUseCase,
     DeleteCategoryUseCase,
+    GetCategoryByIdUseCase,
     SearchCategoriesUseCase,
     UpdateCategoryUseCase,
 )
@@ -57,14 +59,29 @@ async def create_category(
         )
 
 
+@router.get("/{category_id}", response_model=AdminCategoryResponse)
+async def get_found_report(
+    category_id: uuid.UUID,
+    use_case: GetCategoryByIdUseCase = Depends(get_category_by_id_use_case),
+):
+    try:
+        report = await use_case.execute(category_id)
+        return AdminCategoryResponse.model_validate(report)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 @router.put("/{category_id}", response_model=AdminCategoryResponse)
 async def update_category(
     category_id: uuid.UUID,
     body: AdminUpdateCategoryRequest = Depends(get_update_category_form),
+    current_admin: Admin = Depends(get_current_admin),
     use_case: UpdateCategoryUseCase = Depends(get_update_category_use_case),
 ):
     try:
-        category = await use_case.execute(category_id=category_id, new_name=body.name)
+        category = await use_case.execute(
+            category_id=category_id, new_name=body.name, actor=current_admin
+        )
         return AdminCategoryResponse.model_validate(category)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -77,10 +94,10 @@ async def update_category(
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     category_id: uuid.UUID,
-    _: Admin = Depends(get_current_admin),
+    current_admin: Admin = Depends(get_current_admin),
     use_case: DeleteCategoryUseCase = Depends(get_delete_category_use_case),
 ):
     try:
-        await use_case.execute(category_id=category_id)
+        await use_case.execute(category_id=category_id, actor=current_admin)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

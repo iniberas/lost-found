@@ -73,11 +73,21 @@ class UpdateCategoryUseCase:
         return category
 
 
+class GetCategoryByIdUseCase:
+    def __init__(self, repo: ICategoryRepository):
+        self.repo = repo
+    
+    async def execute(self, category_id: uuid.UUID):
+        category = await self.repo.get_by_id(category_id)
+        if not category:
+            raise ValueError("Category not found")
+        return category
+
+
 class SearchCategoriesUseCase:
     def __init__(self, category_repo: ICategoryRepository):
         self.category_repo = category_repo
 
-    # Pencarian biasanya tidak di-log untuk menghemat resource, kecuali aplikasinya highly-sensitive
     async def execute(self, query: Optional[str] = None, is_active: Optional[bool] = None) -> List[Category]:
         return await self.category_repo.search(query=query, is_active=is_active)
 

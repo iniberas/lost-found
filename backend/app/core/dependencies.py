@@ -16,6 +16,7 @@ from app.domain.use_cases.auth import (
 from app.domain.use_cases.category import (
     CreateCategoryUseCase,
     DeleteCategoryUseCase,
+    GetCategoryByIdUseCase,
     SearchCategoriesUseCase,
     UpdateCategoryUseCase,
 )
@@ -23,6 +24,7 @@ from app.domain.use_cases.contact_request import (
     ApproveContactRequestUseCase,
     CancelContactRequestUseCase,
     CreateContactRequestUseCase,
+    GetContactAccessUseCase,
     RejectContactRequestUseCase,
     SearchContactRequestsUseCase,
     GetContactAccessUseCase,
@@ -219,6 +221,7 @@ async def get_current_user(
     except ValueError:
         raise credentials_exception
 
+
 # buat di get report, soalnya bisa aja lom login gitu
 async def get_current_user_optional(
     token: Optional[str] = Depends(oauth2_scheme_optional),
@@ -293,6 +296,12 @@ def get_update_category_use_case(
     audit_log_repo: AuditLogRepository = Depends(get_audit_log_repo),
 ) -> UpdateCategoryUseCase:
     return UpdateCategoryUseCase(repo, audit_log_repo)
+
+
+def get_category_by_id_use_case(
+    repo: CategoryRepository = Depends(get_category_repo),
+) -> GetCategoryByIdUseCase:
+    return GetCategoryByIdUseCase(repo)
 
 
 def get_search_categories_use_case(
@@ -565,7 +574,9 @@ def get_create_contact_request_use_case(
     lost_report_repo: LostReportRepository = Depends(get_lost_report_repo),
     found_report_repo: FoundReportRepository = Depends(get_found_report_repo),
 ) -> CreateContactRequestUseCase:
-    return CreateContactRequestUseCase(request_repo, user_repo, audit_log_repo, lost_report_repo, found_report_repo)
+    return CreateContactRequestUseCase(
+        request_repo, user_repo, audit_log_repo, lost_report_repo, found_report_repo
+    )
 
 
 def get_approve_contact_request_use_case(
@@ -595,6 +606,7 @@ def get_search_contact_requests_use_case(
     found_report_repo: FoundReportRepository = Depends(get_found_report_repo),
 ) -> SearchContactRequestsUseCase:
     return SearchContactRequestsUseCase(repo, lost_report_repo, found_report_repo)
+
 
 def get_contact_access_use_case(
     repo: ContactRequestRepository = Depends(get_contact_request_repo),
@@ -650,6 +662,7 @@ def get_update_user_form(
 ) -> UpdateUserRequest:
     return UpdateUserRequest(name=name, email=email, phone_number=phone_number)
 
+
 def get_create_category_form(name: str = Form(...)) -> CreateCategoryRequest:
     return CreateCategoryRequest(name=name)
 
@@ -659,7 +672,7 @@ def get_update_category_form(name: str = Form(...)) -> UpdateCategoryRequest:
 
 
 def get_create_lost_report_form(
-    title: str = Form(""), # biar divalidate nya di domain model
+    title: str = Form(""),  # biar divalidate nya di domain model
     description: str = Form(""),
     location_name: str = Form(""),
     incident_date: datetime = Form(...),
@@ -683,7 +696,7 @@ def get_create_lost_report_form(
 
 
 def get_create_found_report_form(
-    title: str = Form(""), # biar divalidate nya di domain model
+    title: str = Form(""),  # biar divalidate nya di domain model
     description: str = Form(""),
     location_name: str = Form(""),
     incident_date: datetime = Form(...),

@@ -7,6 +7,7 @@ from app.core.dependencies import (
     get_current_admin,
     get_delete_storage_location_use_case,
     get_search_storage_locations_use_case,
+    get_storage_location_by_id_use_case,
     get_update_storage_location_use_case,
 )
 from app.domain.entities.point import Point
@@ -16,6 +17,7 @@ from app.domain.use_cases.storage_location import (
     ActivateStorageLocationUseCase,
     CreateStorageLocationUseCase,
     DeleteStorageLocationUseCase,
+    GetStorageLocationByIdUseCase,
     SearchStorageLocationsUseCase,
     UpdateStorageLocationUseCase,
 )
@@ -45,11 +47,12 @@ async def create_storage_location(
     location_point = Point(
         latitude=body.location_point.latitude, longitude=body.location_point.longitude
     )
+    print(body.description if body.description else "", "<----------------------------------- here")
     try:
         location = await use_case.execute(
             actor=current_admin,
             name=body.name,
-            description=body.description,
+            description=body.description if body.description else "",
             location_point=location_point,
         )
         return AdminStorageLocationResponse.model_validate(location)
@@ -61,15 +64,28 @@ async def create_storage_location(
         )
 
 
+@router.get("/{report_id}", response_model=AdminStorageLocationResponse)
+async def get_found_report(
+    report_id: uuid.UUID,
+    use_case: GetStorageLocationByIdUseCase = Depends(
+        get_storage_location_by_id_use_case
+    ),
+):
+    try:
+        report = await use_case.execute(report_id)
+        return AdminStorageLocationResponse.model_validate(report)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 @router.get("", response_model=Paginated[AdminStorageLocationResponse])
 async def search_storage_locations(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     query: Optional[str] = Query(None),
-    is_active: Optional[bool] = Query(
-        None, description="Filter aktif/nonaktif. Kosongkan untuk melihat semua."
-    ),
-    _: Admin = Depends(get_current_admin),
+    is_active: Optional[bool] = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc"),
     use_case: SearchStorageLocationsUseCase = Depends(
         get_search_storage_locations_use_case
     ),
@@ -79,6 +95,8 @@ async def search_storage_locations(
         limit=limit,
         query=query,
         is_active=is_active,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     return Paginated(
         items=[

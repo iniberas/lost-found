@@ -161,10 +161,19 @@ class SearchStorageLocationsUseCase:
         page: int = 1,
         limit: int = 20,
         query: Optional[str] = None,
+        sort_by: Optional[str] = "created_at",
+        sort_order: Optional[str] = "desc",  
         is_active: Optional[bool] = None,
     ) -> Paginated:
         offset = max((page - 1) * limit, 0)
-        items = await self.repo.search(query, is_active, limit=limit, offset=offset)
+        items = await self.repo.search(
+            query=query, 
+            is_active=is_active, 
+            sort_by=sort_by, 
+            sort_order=sort_order, 
+            limit=limit, 
+            offset=offset
+        )
         total = await self.repo.count_search(query, is_active)
 
         return Paginated(

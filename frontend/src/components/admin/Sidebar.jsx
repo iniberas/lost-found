@@ -2,22 +2,22 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, Users, FileText, Tag, HandshakeIcon, ClipboardList, Archive } from "lucide-react";
 import { ADMIN_COLORS } from "../../constants/colors";
 
-const navItems = [
+export const navItems = [
   { label: "Home", icon: Home, path: "/admin/home" },
+  { label: "Hand Over Report", icon: HandshakeIcon, path: "/admin/handover" },
   { label: "Manage Users", icon: Users, path: "/admin/users" },
   { label: "Manage Reports", icon: FileText, path: "/admin/reports" },
   { label: "Manage Category", icon: Tag, path: "/admin/categories" },
-  { label: "Hand Over Report", icon: HandshakeIcon, path: "/admin/handover" },
-  { 
-    label: "View Audit Logs", 
-    icon: ClipboardList, 
-    path: "/admin/audit-logs", 
-    requiredRole: "superadmin"
-  },
   { 
     label: "Manage Storages", 
     icon: Archive, 
     path: "/admin/storage-locations", 
+    requiredRole: "superadmin"
+  },
+  { 
+    label: "View Audit Logs", 
+    icon: ClipboardList, 
+    path: "/admin/audit-logs", 
     requiredRole: "superadmin"
   },
 ];
@@ -27,7 +27,7 @@ const AdminSidebar = ({ user }) => {
   const location = useLocation();
   return (
     <aside
-      className="w-[220px] h-full flex flex-col shrink-0 font-poppins overflow-y-auto"
+      className="hidden md:flex w-[220px] h-full flex-col shrink-0 font-poppins overflow-y-auto"
       style={{ backgroundColor: ADMIN_COLORS.sidebarBg }}
     >
       <nav className="flex flex-col gap-3 p-3 flex-grow">

@@ -12,22 +12,26 @@ import HomePage from "./pages/HomePage";
 import CreateReportPage from "./pages/CreateReportPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import UpdateReportPage from "./pages/UpdateReportPage";
-import MyReportsPage from './pages/MyReportsPage';
-import MyContactRequestsPage from './pages/MyContactRequestsPage';
-import ProfilePage from './pages/ProfilePage';
+import MyReportsPage from "./pages/MyReportsPage";
+import MyContactRequestsPage from "./pages/MyContactRequestsPage";
+import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import AdminDashboardHomePage from "./pages/admin/HomePage";
-import AdminManageUsersPage from "./pages/admin/ManageUsersPage";
-import AdminUserDetailPage from "./pages/admin/UserDetailPage";
+import AdminManageUsersPage from "./pages/admin/User";
+import AdminUserDetailPage from "./pages/admin/User/detail";
 import AdminAuthPage from "./pages/admin/AuthPage";
-import AdminManageCategoriesPage from "./pages/admin/ManageCategoriesPage";
-import AdminManageReportsPage from "./pages/admin/ManageReportsPage";
-import AdminReportDetailPage from "./pages/admin/ReportDetailPage";
+import AdminManageCategoriesPage from "./pages/admin/Category";
+import AdminCategoryDetailPage from "./pages/admin/Category/detail";
+import AdminManageReportsPage from "./pages/admin/Report";
+import AdminReportDetailPage from "./pages/admin/Report/detail";
 import AdminHandoverPage from "./pages/admin/HandOverReportPage";
-import AdminManageStorageLocationsPage from "./pages/admin/ManageStorageLocationPage";
-import AdminViewAuditLogsPage from "./pages/admin/ViewAuditLogsPage";
+import AdminManageStorageLocationsPage from "./pages/admin/StorageLocation";
+import AdminStorageLocationDetailPage from "./pages/admin/StorageLocation/detail";
+import AdminViewAuditLogsPage from "./pages/admin/AuditLog";
+import AdminAuditLogDetailPage from "./pages/admin/AuditLog/detail";
 import AdminProtectedRoute from "./components/admin/ProtectedRoute";
+import AdminProfilePage from "./pages/admin/ProfilePage";
 import { apiFetch } from "./utils/api";
 
 import UserLayout from "./layouts/UserLayout";
@@ -38,6 +42,7 @@ function AppContent() {
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const API_URL = import.meta.env.VITE_API_URL;
   const [contactRequestNotificationCount, setContactRequestNotificationCount] =
     useState({
       incoming_pending: 0,
@@ -50,23 +55,16 @@ function AppContent() {
     const refreshToken =
       localStorage.getItem("refresh_token");
 
-    if (!refreshToken) {
-      return null;
-    }
+  const tryRefreshToken = async () => {
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (!refreshToken) return null;
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/refresh`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            refresh_token: refreshToken,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
 
       if (!response.ok) {
         handleLogout();
@@ -74,51 +72,37 @@ function AppContent() {
       }
 
       const data = await response.json();
-
-      localStorage.setItem(
-        "access_token",
-        data.access_token
-      );
-
+      localStorage.setItem("access_token", data.access_token);
       return data.access_token;
-
     } catch {
       handleLogout();
       return null;
     }
   };
 
-  const API_URL = import.meta.env.VITE_API_URL;
-
   useEffect(() => {
     initializeAuth();
   }, []);
 
   const initializeAuth = async () => {
-    const isAdminPage =
-      window.location.pathname.startsWith("/admin");
+    const isAdminPage = window.location.pathname.startsWith("/admin");
+    let token = localStorage.getItem("access_token");
 
-    let token =
-      localStorage.getItem("access_token");
-
-    // ga ada access token
     if (!token) {
       token = await tryRefreshToken();
     }
 
-    // masih ga ada
     if (!token) {
       setLoading(false);
       return;
     }
 
     if (isAdminPage) {
-      fetchAdminProfile(token);
+      await fetchAdminProfile(token);
     } else {
-      fetchProfile(token);
+      await fetchProfile(token);
     }
   };
-
 
   const fetchProfile = async (token) => {
     try {
@@ -128,10 +112,10 @@ function AppContent() {
       if (response.ok) {
         setUser(await response.json());
       } else {
-        handleLogout();
+        setUser(null);
       }
     } catch (e) {
-      handleLogout();
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -145,10 +129,10 @@ function AppContent() {
       if (response.ok) {
         setAdmin(await response.json());
       } else {
-        handleLogout();
+        setAdmin(null);
       }
     } catch (e) {
-      handleLogout();
+      setAdmin(null);
     } finally {
       setLoading(false);
     }
@@ -195,6 +179,7 @@ function AppContent() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     setUser(null);
+    setAdmin(null);
   };
 
   if (loading) {
@@ -340,7 +325,6 @@ function AppContent() {
         }
       />
 
-
       <Route
         path="/admin/auth"
         element={
@@ -357,19 +341,28 @@ function AppContent() {
       />
 
       <Route
+        path="/admin/home"
+        element={
+          <AdminProtectedRoute admin={admin}>
+            <AdminDashboardHomePage user={admin} />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
         path="/admin"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <Navigate to="/admin/home" replace />
           </AdminProtectedRoute>
         }
       />
 
       <Route
-        path="/admin/home"
+        path="/admin/profile"
         element={
-          <AdminProtectedRoute>
-            <AdminDashboardHomePage user={admin} />
+          <AdminProtectedRoute admin={admin}>
+            <AdminProfilePage user={admin} />
           </AdminProtectedRoute>
         }
       />
@@ -377,7 +370,7 @@ function AppContent() {
       <Route
         path="/admin/users"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminManageUsersPage user={admin} />
           </AdminProtectedRoute>
         }
@@ -386,7 +379,7 @@ function AppContent() {
       <Route
         path="/admin/users/:id"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminUserDetailPage user={admin} />
           </AdminProtectedRoute>
         }
@@ -395,8 +388,17 @@ function AppContent() {
       <Route
         path="/admin/categories"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminManageCategoriesPage user={admin} />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/categories/:id"
+        element={
+          <AdminProtectedRoute admin={admin}>
+            <AdminCategoryDetailPage user={admin} />
           </AdminProtectedRoute>
         }
       />
@@ -404,7 +406,7 @@ function AppContent() {
       <Route
         path="/admin/reports"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminManageReportsPage user={admin} />
           </AdminProtectedRoute>
         }
@@ -413,7 +415,7 @@ function AppContent() {
       <Route
         path="/admin/reports/:id"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminReportDetailPage user={admin} />
           </AdminProtectedRoute>
         }
@@ -422,24 +424,44 @@ function AppContent() {
       <Route
         path="/admin/handover"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminHandoverPage user={admin} />
           </AdminProtectedRoute>
         }
       />
+
       <Route
         path="/admin/audit-logs"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminViewAuditLogsPage user={admin} />
           </AdminProtectedRoute>
         }
       />
+
+      <Route
+        path="/admin/audit-logs/:id"
+        element={
+          <AdminProtectedRoute admin={admin}>
+            <AdminAuditLogDetailPage user={admin} />
+          </AdminProtectedRoute>
+        }
+      />
+
       <Route
         path="/admin/storage-locations"
         element={
-          <AdminProtectedRoute>
+          <AdminProtectedRoute admin={admin}>
             <AdminManageStorageLocationsPage user={admin} />
+          </AdminProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/storage-locations/:id"
+        element={
+          <AdminProtectedRoute admin={admin}>
+            <AdminStorageLocationDetailPage user={admin} />
           </AdminProtectedRoute>
         }
       />

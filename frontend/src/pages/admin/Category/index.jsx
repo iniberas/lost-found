@@ -1,14 +1,12 @@
 import React, { useState, useCallback } from "react";
-import { Plus, Edit, Trash2, Check, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Check, Loader2 } from "lucide-react";
 import AdminDashboardLayout from "../../../layouts/AdminDashboard";
 import AdminTable from "../../../components/admin/Table";
 import AdminSearchFilter from "../../../components/admin/SearchFilter";
 import AdminModal from "../../../components/admin/AdminModal";
 import StatusBadge from "../../../components/admin/StatusBadge";
-import {
-  FilterSelect,
-  ActionBtn,
-} from "../../../components/admin/FilterHelpers";
+import { FilterSelect } from "../../../components/admin/FilterHelpers";
 import { adminFetch, buildParams } from "../../../utils/adminApi";
 import { useAdminTable } from "../../../hooks/useAdminTable";
 import { IPB_COLORS } from "../../../constants/colors";
@@ -19,12 +17,6 @@ const TABLE_HEADERS = [
   { label: "#", key: "no", sortable: false, className: "w-16" },
   { label: "Category Name", key: "name", sortable: true },
   { label: "Status", key: "is_active", sortable: true },
-  {
-    label: "Action",
-    key: "action",
-    sortable: false,
-    className: "text-center w-28",
-  },
 ];
 
 async function fetchCategories({ searchTerm, sortBy, sortOrder, filters }) {
@@ -33,7 +25,6 @@ async function fetchCategories({ searchTerm, sortBy, sortOrder, filters }) {
     ...(filters.is_active !== "" && { is_active: filters.is_active }),
   });
   const data = await adminFetch(`/api/v1/admin/categories?${qs}`);
-
   const items = Array.isArray(data) ? data : (data?.items ?? []);
 
   items.sort((a, b) => {
@@ -50,7 +41,8 @@ async function fetchCategories({ searchTerm, sortBy, sortOrder, filters }) {
 }
 
 export default function AdminManageCategoriesPage({ user }) {
-  const [modal, setModal] = useState(null);
+  const navigate = useNavigate(); 
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState("");
@@ -62,18 +54,14 @@ export default function AdminManageCategoriesPage({ user }) {
     defaultFilters: DEFAULT_FILTERS,
   });
 
-  const openAdd = () => {
+  const openCreate = () => {
     setNameInput("");
     setModalError("");
-    setModal({ mode: "add" });
+    setIsAddModalOpen(true);
   };
-  const openEdit = (cat) => {
-    setNameInput(cat.name);
-    setModalError("");
-    setModal({ mode: "edit", category: cat });
-  };
+  
   const closeModal = () => {
-    setModal(null);
+    setIsAddModalOpen(false);
     setModalError("");
   };
 
@@ -82,37 +70,17 @@ export default function AdminManageCategoriesPage({ user }) {
     setIsSubmitting(true);
     setModalError("");
     try {
-      if (modal.mode === "add") {
-        await adminFetch("/api/v1/admin/categories", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ name: nameInput }),
-        });
-      } else {
-        await adminFetch(`/api/v1/admin/categories/${modal.category.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ name: nameInput }),
-        });
-      }
+      await adminFetch("/api/v1/admin/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ name: nameInput }),
+      });
       closeModal();
       table.refresh();
     } catch (err) {
       setModalError(err.message);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (category) => {
-    if (!window.confirm(`Deactivate category "${category.name}"?`)) return;
-    try {
-      await adminFetch(`/api/v1/admin/categories/${category.id}`, {
-        method: "DELETE",
-      });
-      table.refresh();
-    } catch (err) {
-      alert(err.message);
     }
   };
 
@@ -125,7 +93,7 @@ export default function AdminManageCategoriesPage({ user }) {
               searchValue={table.searchInput}
               onSearchChange={(e) => table.setSearchInput(e.target.value)}
               onSearchSubmit={table.handleSearchSubmit}
-              searchPlaceholder="Search category name…"
+              searchPlaceholder="Search by name…"
               filterTitle="Filter Categories"
               isFilterActive={table.isFilterActive}
               onApplyFilter={table.handleApplyFilter}
@@ -145,11 +113,11 @@ export default function AdminManageCategoriesPage({ user }) {
             </AdminSearchFilter>
           </div>
           <button
-            onClick={openAdd}
+            onClick={openCreate}
             className="px-5 rounded-2xl text-white font-bold shadow-sm flex items-center gap-2 hover:opacity-90 transition-opacity text-sm shrink-0"
             style={{ backgroundColor: IPB_COLORS.blue.primary }}
           >
-            <Plus size={18} /> Add Category
+            <Plus size={18} /> Create Category
           </button>
         </div>
 
@@ -165,7 +133,8 @@ export default function AdminManageCategoriesPage({ user }) {
           {table.items.map((row, i) => (
             <tr
               key={row.id}
-              className="hover:bg-blue-50/30 transition-colors border-t border-gray-50"
+              onClick={() => navigate(`/admin/categories/${row.id}`)}
+              className="hover:bg-blue-50/30 transition-colors border-t border-gray-50 cursor-pointer"
             >
               <td className="px-6 py-4 text-gray-400 font-medium text-sm">
                 {i + 1}
@@ -175,37 +144,9 @@ export default function AdminManageCategoriesPage({ user }) {
               </td>
               <td className="px-6 py-4">
                 <StatusBadge
-                  variant={row.is_active ? "active" : "deleted"}
+                  variant={row.is_active ? "green" : "red"}
                   label={row.is_active ? "Active" : "Inactive"}
                 />
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex justify-center gap-1">
-                  <ActionBtn
-                    title="Edit"
-                    icon={
-                      <Edit
-                        size={16}
-                        className="text-blue-500 group-hover:text-blue-700"
-                      />
-                    }
-                    onClick={() => openEdit(row)}
-                    hoverClass="hover:bg-blue-100"
-                  />
-                  {row.is_active && (
-                    <ActionBtn
-                      title="Deactivate"
-                      icon={
-                        <Trash2
-                          size={16}
-                          className="text-red-400 group-hover:text-red-600"
-                        />
-                      }
-                      onClick={() => handleDelete(row)}
-                      hoverClass="hover:bg-red-100"
-                    />
-                  )}
-                </div>
               </td>
             </tr>
           ))}
@@ -213,9 +154,9 @@ export default function AdminManageCategoriesPage({ user }) {
       </div>
 
       <AdminModal
-        isOpen={!!modal}
+        isOpen={isAddModalOpen}
         onClose={closeModal}
-        title={modal?.mode === "add" ? "Add New Category" : "Edit Category"}
+        title="Create New Category"
         footer={
           <>
             <button
