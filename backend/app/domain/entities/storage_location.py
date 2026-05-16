@@ -22,7 +22,7 @@ class StorageLocation:
         location_point: Point,
     ):
         name = self._clean_text(name, "Name")
-        description = self._clean_text(description, "Description")
+        description = description.strip()
 
         self._validate_timestamp(created_at, "Created at")
         self._validate_timestamp(updated_at, "Updated at")

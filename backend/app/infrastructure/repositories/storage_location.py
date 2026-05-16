@@ -7,7 +7,7 @@ from app.domain.interfaces.storage_location import IStorageLocationRepository
 from app.infrastructure.database.models.storage_location import StorageLocationModel
 from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import to_shape
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -87,12 +87,15 @@ class StorageLocationRepository(IStorageLocationRepository):
         self,
         query: Optional[str] = None,
         is_active: Optional[bool] = None,
+        sort_by: Optional[str] = "created_at",
+        sort_order: Optional[str] = "desc",
         limit: int = 20,
         offset: int = 0,
     ) -> List[StorageLocation]:
         stmt = select(StorageLocationModel)
         stmt = self._apply_filters(stmt, query, is_active)
-        stmt = stmt.order_by(StorageLocationModel.name).limit(limit).offset(offset)
+        stmt = self._apply_sort(stmt, sort_by, sort_order)
+        stmt = stmt.limit(limit).offset(offset)
 
         result = await self.session.execute(stmt)
         return [self._to_entity(m) for m in result.scalars().all()]
@@ -111,9 +114,24 @@ class StorageLocationRepository(IStorageLocationRepository):
     def _apply_filters(self, stmt, query, is_active):
         if is_active is not None:
             stmt = stmt.where(StorageLocationModel.is_active.is_(is_active))
+            
         if query:
-            stmt = stmt.where(StorageLocationModel.name.ilike(f"%{query}%"))
+            like = f"%{query}%"
+            stmt = stmt.where(
+                or_(
+                    StorageLocationModel.name.ilike(like),
+                    StorageLocationModel.description.ilike(like),
+                )
+            )
         return stmt
+
+    def _apply_sort(self, stmt, sort_by, sort_order):
+        col = {
+            "created_at": StorageLocationModel.created_at,
+            "name": StorageLocationModel.name,
+        }.get(sort_by, StorageLocationModel.created_at)
+        
+        return stmt.order_by(col.asc() if sort_order == "asc" else col.desc())
 
     async def delete(self, location_id: uuid.UUID) -> None:
         model = await self.session.get(StorageLocationModel, location_id)

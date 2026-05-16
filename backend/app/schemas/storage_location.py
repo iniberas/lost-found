@@ -20,7 +20,7 @@ class StorageLocationResponse(BaseModel):
 
 class CreateStorageLocationRequest(BaseModel):
     name: str
-    description: str
+    description: Optional[str]
     location_point: PointSchema
 
 

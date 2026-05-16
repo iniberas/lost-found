@@ -1,5 +1,6 @@
 from app.api.v1.admins.audit_logs import router as audit_logs_router
 from app.api.v1.admins.categories import router as categories_router
+from app.api.v1.admins.dashboard import router as dashboard_router
 from app.api.v1.admins.reports import router as reports_router
 from app.api.v1.admins.storage_locations import router as storage_locations_router
 from app.api.v1.admins.users import router as users_router
@@ -14,6 +15,7 @@ router = APIRouter(
 
 router.include_router(users_router)
 router.include_router(categories_router)
+router.include_router(dashboard_router)
 router.include_router(reports_router)
 router.include_router(storage_locations_router)
 router.include_router(audit_logs_router)

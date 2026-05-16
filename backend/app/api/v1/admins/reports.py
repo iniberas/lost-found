@@ -204,13 +204,16 @@ async def create_hand_over_report(
 )
 async def hand_over_to_admin(
     report_id: uuid.UUID,
-    admin_id: uuid.UUID = Form(...),
+    storage_location_id: uuid.UUID = Form(...),
     current_admin: Admin = Depends(get_current_admin),
     use_case: HandOverToAdminUseCase = Depends(get_hand_over_to_admin_use_case),
 ):
     try:
         report = await use_case.execute(
-            report_id=report_id, user=current_admin, admin_id=admin_id
+            report_id=report_id,
+            user=current_admin,
+            admin_id=current_admin.id,
+            storage_location_id=storage_location_id,
         )
         return AdminFoundReportResponse.model_validate(report)
     except ValueError as e:

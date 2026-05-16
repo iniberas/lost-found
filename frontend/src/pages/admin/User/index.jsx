@@ -1,5 +1,4 @@
 import React from "react";
-import { Eye, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminDashboardLayout from "../../../layouts/AdminDashboard";
 import AdminTable from "../../../components/admin/Table";
@@ -8,10 +7,8 @@ import StatusBadge from "../../../components/admin/StatusBadge";
 import {
   FilterSelect,
   FilterDate,
-  ActionBtn,
   formatDate,
 } from "../../../components/admin/FilterHelpers";
-import { IPB_COLORS } from "../../../constants/colors";
 import { adminFetch, buildParams } from "../../../utils/adminApi";
 import { useAdminTable } from "../../../hooks/useAdminTable";
 
@@ -32,8 +29,24 @@ const TABLE_HEADERS = [
   { label: "Role", key: "role", sortable: true },
   { label: "Joined", key: "created_at", sortable: true },
   { label: "Status", key: "deleted_at", sortable: false },
-  { label: "Action", key: "action", sortable: false, className: "text-center" },
 ];
+
+const getRoleColor = (role) => {
+  switch (role?.toLowerCase()) {
+    case "superadmin":
+      return "purple";
+    case "admin":
+      return "blue";
+    case "user":
+      return "gray";
+    default:
+      return "gray";
+  }
+};
+
+const getStatusColor = (isDeleted) => {
+  return isDeleted ? "red" : "green";
+};
 
 function fetchUsers({ page, searchTerm, sortBy, sortOrder, filters }) {
   const qs = buildParams({
@@ -64,20 +77,9 @@ export default function AdminManageUsersPage({ user }) {
     defaultFilters: DEFAULT_FILTERS,
   });
 
-  const handleDelete = async (userId, userName) => {
-    if (!window.confirm(`Delete user "${userName}"? This cannot be undone.`))
-      return;
-    try {
-      await adminFetch(`/api/v1/admin/users/${userId}`, { method: "DELETE" });
-      table.refresh();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   return (
     <AdminDashboardLayout user={user}>
-      <div className="px-10 py-8 space-y-4">
+      <div className="px-10 py-8 space-y-5">
         <AdminSearchFilter
           searchValue={table.searchInput}
           onSearchChange={(e) => table.setSearchInput(e.target.value)}
@@ -142,54 +144,33 @@ export default function AdminManageUsersPage({ user }) {
           {table.items.map((row, i) => (
             <tr
               key={row.id}
-              className="hover:bg-blue-50/30 transition-colors border-t border-gray-50"
+              onClick={() => navigate(`/admin/users/${row.id}`)}
+              className="hover:bg-blue-50/30 transition-colors border-t border-gray-50 cursor-pointer"
             >
-              <td className="px-6 py-3 text-gray-400 font-medium text-sm">
+              <td className="px-6 py-4 text-gray-400 font-medium text-sm">
                 {(table.page - 1) * LIMIT + i + 1}
               </td>
-              <td className="px-6 py-3 font-semibold text-gray-900">
+              <td className="px-6 py-4 font-semibold text-gray-900">
                 {row.name}
               </td>
-              <td className="px-6 py-3 text-gray-600">{row.email}</td>
-              <td className="px-6 py-3 text-gray-600">
+              <td className="px-6 py-4 text-gray-600">{row.email}</td>
+              <td className="px-6 py-4 text-gray-600">
                 {row.phone_number || "—"}
               </td>
-              <td className="px-6 py-3">
-                <StatusBadge variant={row.role} />
+              <td className="px-6 py-4">
+                <StatusBadge
+                  variant={getRoleColor(row.role)}
+                  label={row.role}
+                />
               </td>
-              <td className="px-6 py-3 text-gray-500 text-sm">
+              <td className="px-6 py-4 text-gray-500 text-sm">
                 {formatDate(row.created_at)}
               </td>
-              <td className="px-6 py-3">
-                <StatusBadge variant={row.deleted_at ? "deleted" : "active"} />
-              </td>
-              <td className="px-6 py-3">
-                <div className="flex justify-center gap-1">
-                  <ActionBtn
-                    title="View Details"
-                    icon={
-                      <Eye
-                        size={17}
-                        className="text-blue-500 group-hover:text-blue-700"
-                      />
-                    }
-                    onClick={() => navigate(`/admin/users/${row.id}`)}
-                    hoverClass="hover:bg-blue-100"
-                  />
-                  {!row.deleted_at && (
-                    <ActionBtn
-                      title="Delete User"
-                      icon={
-                        <Trash2
-                          size={17}
-                          className="text-red-400 group-hover:text-red-600"
-                        />
-                      }
-                      onClick={() => handleDelete(row.id, row.name)}
-                      hoverClass="hover:bg-red-100"
-                    />
-                  )}
-                </div>
+              <td className="px-6 py-4">
+                <StatusBadge
+                  variant={getStatusColor(!!row.deleted_at)}
+                  label={row.deleted_at ? "Deleted" : "Active"}
+                />
               </td>
             </tr>
           ))}

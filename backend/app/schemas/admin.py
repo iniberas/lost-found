@@ -158,3 +158,36 @@ class AdminUpdateFoundReportRequest(UpdateFoundReportRequest):
 
 class AdminResolveFoundReportRequest(ResolveFoundReportRequest):
     pass
+
+
+# ==========================================
+# 7. ADMIN DASHBOARD
+# ==========================================
+class StatItem(BaseModel):
+    total: int
+    trend_percentage: float
+
+
+class DashboardStatsResponse(BaseModel):
+    new_reports: StatItem
+    pending_reports: StatItem
+    resolved_reports: StatItem
+    active_users: StatItem
+
+
+class ChartItem(BaseModel):
+    name: str
+    value: int
+
+
+class DashboardChartResponse(BaseModel):
+    lost: List[ChartItem]
+    found: List[ChartItem]
+
+
+class MapIncidentResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    report_type: str
+    latitude: float
+    longitude: float
