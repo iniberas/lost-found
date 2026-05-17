@@ -29,8 +29,6 @@ class ContactRequest:
         report_id: uuid.UUID,
         report_type: ReportType,
         status: RequestStatus,
-        report_title: Optional[str] = None,
-        report_description: Optional[str] = None,
         message: Optional[str] = None,
         responded_at: Optional[datetime] = None,
         response_message: Optional[str] = None,
@@ -59,8 +57,6 @@ class ContactRequest:
         self._target_user = target_user
         self._report_id = report_id
         self._report_type = report_type
-        self._report_title = report_title
-        self._report_description = report_description
         self._status = status
         self._message = message
         self._responded_at = responded_at
@@ -131,22 +127,6 @@ class ContactRequest:
     def report_type(self) -> ReportType:
         return self._report_type
     
-    @property
-    def report_title(self) -> Optional[str]:
-        return self._report_title
-
-    @report_title.setter
-    def report_title(self, value: Optional[str]):
-        self._report_title = value
-
-    @property
-    def report_description(self) -> Optional[str]:
-        return self._report_description
-
-    @report_description.setter
-    def report_description(self, value: Optional[str]):
-        self._report_description = value
-
     @property
     def status(self) -> RequestStatus:
         return self._status
