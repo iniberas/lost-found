@@ -52,7 +52,7 @@ const HEADERS = [
   {
     label: "Status",
     key: "report_status",
-    sortable: true,
+    sortable: false,
   },
   {
     label: "Category",
@@ -296,11 +296,13 @@ export default function MyReportsPage({ user, handleLogout }) {
               </SearchFilter>
             </div>
 
-            <TabSelector
-              tabs={TABS}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-            />
+            <div className="flex justify-center">
+              <TabSelector
+                tabs={TABS}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+              />
+            </div>
           </div>
 
           {/* TABLE */}

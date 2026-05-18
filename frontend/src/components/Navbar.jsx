@@ -31,7 +31,7 @@ const Navbar = ({ user, handleLogout, contactRequestNotificationCount }) => {
 
   return (
     <nav
-      className="flex items-center justify-between px-6 py-3 border-b border-white/10 font-poppins sticky top-0 z-50"
+      className="flex items-center justify-between px-6 py-3 border-b border-white/10 font-poppins sticky top-0 z-2000"
       style={{ backgroundColor: USER_COLORS.navbarBg }}
     >      {/* LOGO */}
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/home')}>

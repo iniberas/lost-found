@@ -463,6 +463,10 @@ export default function ReportDetailPage({ user, handleLogout, refreshContactReq
 			}
 
 			showToast("Laporan berhasil dihapus", "success");
+			setReport((prev) => ({
+				...prev,
+				report_status: "closed",
+			}));
 		} catch (err) {
 			showToast(err.message, "error");
 		}

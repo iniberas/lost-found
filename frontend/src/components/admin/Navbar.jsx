@@ -42,7 +42,7 @@ const AdminNavbar = ({ user, isMobile }) => {
   return (
     <nav
       className={`flex items-center justify-between px-6 py-3 font-poppins ${
-        isMobile ? "border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]" : "border-b border-white/10 sticky top-0 z-50"
+        isMobile ? "border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]" : "border-b border-white/10 sticky top-0 z-2000"
       }`}
       style={{ backgroundColor: ADMIN_COLORS.navbarBg }}
     >
