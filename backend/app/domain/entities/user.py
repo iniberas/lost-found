@@ -196,6 +196,11 @@ class Admin(User):
 
         return cls(id, created_at, updated_at, name, email, phone_number, password_hash)
 
+    @property
+    def role(self) -> str:
+        return "admin"
+
+
 class SuperAdmin(Admin):
     @classmethod
     def new_superadmin(
@@ -206,3 +211,7 @@ class SuperAdmin(Admin):
         updated_at = created_at
 
         return cls(id, created_at, updated_at, name, email, phone_number, password_hash)
+
+    @property
+    def role(self) -> str:
+        return "superadmin"
