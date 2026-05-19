@@ -280,7 +280,6 @@ class LostReportRepository(ILostReportRepository):
         location_point,
         location_radius,
     ):
-        stmt = stmt.where(LostReportModel.deleted_at.is_(None))
         if query:
             like = f"%{query}%"
             stmt = stmt.where(
@@ -577,7 +576,6 @@ class FoundReportRepository(IFoundReportRepository):
         found_status,
         storage_location_id,
     ):
-        stmt = stmt.where(FoundReportModel.deleted_at.is_(None))
         if query:
             like = f"%{query}%"
             stmt = stmt.where(
